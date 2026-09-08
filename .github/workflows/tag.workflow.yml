@@ -144,8 +144,7 @@ jobs:
         working-directory: client-ui
         run: |
           New-Item -ItemType Directory -Force -Path release-assets | Out-Null
-          Copy-Item -Path release\*.exe -Destination release-assets
-          $installer = Get-ChildItem release-assets -File -Filter "frp-manager-client-*-x64.exe" | Select-Object -First 1
+          $installer = Get-ChildItem release -File -Filter "frp-manager-client-*-x64.exe" | Select-Object -First 1
           if ($installer) {
             Copy-Item -LiteralPath $installer.FullName -Destination release-assets\frp-manager-client-windows-x64.exe
           }
@@ -244,10 +243,9 @@ jobs:
             done
           fi
           mkdir -p release-assets
-          find release -maxdepth 1 -type f \( -name "*.dmg" -o -name "*.zip" \) -exec cp {} release-assets/ \;
           for arch in x64 arm64; do
-            dmg="$(find release-assets -maxdepth 1 -type f -name "*-${arch}*.dmg" | head -n 1)"
-            zip="$(find release-assets -maxdepth 1 -type f -name "*-${arch}*.zip" | head -n 1)"
+            dmg="$(find release -maxdepth 1 -type f -name "*-${arch}*.dmg" | head -n 1)"
+            zip="$(find release -maxdepth 1 -type f -name "*-${arch}*.zip" | head -n 1)"
             [[ -z "$dmg" ]] || cp "$dmg" "release-assets/frp-manager-client-macos-${arch}.dmg"
             [[ -z "$zip" ]] || cp "$zip" "release-assets/frp-manager-client-macos-${arch}.zip"
           done
@@ -341,15 +339,12 @@ jobs:
             export ANDROID_KEYSTORE_FILE="$PWD/app/frp-manager-release.jks"
             FRP_MANAGER_VERSION="$RELEASE_VERSION" FRP_MANAGER_VERSION_CODE="$RELEASE_VERSION_CODE" ./gradlew assembleRelease
             source_apk="app/build/outputs/apk/release/app-release.apk"
-            versioned_apk="frp-manager-client-${RELEASE_VERSION}-android.apk"
           else
             FRP_MANAGER_VERSION="$RELEASE_VERSION" FRP_MANAGER_VERSION_CODE="$RELEASE_VERSION_CODE" ./gradlew assembleDebug
             source_apk="app/build/outputs/apk/debug/app-debug.apk"
-            versioned_apk="frp-manager-client-${RELEASE_VERSION}-android-debug.apk"
           fi
           cd ..
           mkdir -p release-assets
-          cp "android/$source_apk" "release-assets/$versioned_apk"
           cp "android/$source_apk" "release-assets/frp-manager-client-android.apk"
           if [[ "$ANDROID_SIGNING_READY" != "true" ]]; then
             printf '%s\n' \
