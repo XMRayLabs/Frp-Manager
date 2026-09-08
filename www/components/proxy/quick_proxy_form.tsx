@@ -4,6 +4,9 @@ import { useId, useState } from 'react'
 import { useMutation } from '@tanstack/react-query'
 import { useTranslation } from 'react-i18next'
 import { nanoid } from 'nanoid'
+import { useStore } from '@nanostores/react'
+import { $userInfo } from '@/store/user'
+import { automaticProxyName } from '@/lib/proxy-name'
 import { createProxyConfig } from '@/api/proxy'
 import { ObjToUint8Array } from '@/lib/utils'
 import { $proxyTableRefetchTrigger } from '@/store/refetch-trigger'
@@ -33,20 +36,21 @@ export function QuickProxyForm({ onSuccess }: { onSuccess?: () => void }) {
   const [username, setUsername] = useState('user')
   const [password, setPassword] = useState('')
   const [showPassword, setShowPassword] = useState(false)
-  const [name, setName] = useState('')
+  const user = useStore($userInfo)
   const [suffix] = useState(() => nanoid(6))
   const [created, setCreated] = useState(false)
   const forwarding = purpose === 'tcp' || existing
   const publicPort = forwarding && !samePort ? remotePort : port
   const validPort = (value: string) => /^\d+$/.test(value) && Number(value) >= 1 && Number(value) <= 65535
-  const valid = !!clientId && !!serverId && validPort(publicPort) &&
+  const valid = !!user?.userName && !!clientId && !!serverId && validPort(publicPort) &&
     (forwarding ? validPort(port) && !!localIP.trim() : !!username.trim() && !!password)
   const host = server?.ip || text('服务器地址', 'server address')
   const address = `${host.includes(':') && !host.startsWith('[') ? `[${host}]` : host}:${publicPort || '?'}`
   const mutation = useMutation({
     mutationFn: () => {
       if (!valid) throw new Error(text('请填写节点、有效端口及认证信息', 'Complete the nodes, valid ports and credentials'))
-      const config = buildQuickProxy({ purpose, existing, port, samePort, remotePort, localIP, username, password, name, suffix })
+      const config = buildQuickProxy({ purpose, existing, port, samePort, remotePort, localIP, username, password, name: '', suffix })
+      config.name = automaticProxyName(user!.userName!, clientId!, serverId!, config, suffix)
       return createProxyConfig({ clientId: clientId!, serverId: serverId!, config: ObjToUint8Array({ proxies: [config] }), overwrite: false })
     },
     onSuccess: () => {
@@ -90,10 +94,9 @@ export function QuickProxyForm({ onSuccess }: { onSuccess?: () => void }) {
           <div className="flex items-center justify-between gap-2"><label className="flex items-center gap-2 text-sm"><input type="checkbox" checked={showPassword} onChange={e => setShowPassword(e.target.checked)} />{text('显示密码', 'Show password')}</label><Button type="button" variant="outline" size="sm" onClick={() => { setPassword(nanoid(20)); setShowPassword(true) }}>{text('生成密码', 'Generate password')}</Button></div>
           <p className="text-xs text-muted-foreground">{text('客户端内置代理，无需额外安装程序或填写本机端口。', 'Built-in proxy: no extra software or local listening port is required.')}</p>
         </div>}
-        <details className="rounded-lg border p-3"><summary className="cursor-pointer text-sm">{text('更多选项', 'More options')}</summary><div className="mt-3 space-y-3">
-          <label className="block space-y-2" htmlFor={`${id}-name`}><span className="text-sm">{text('名称（留空自动生成）', 'Name (generated when empty)')}</span><Input id={`${id}-name`} value={name} onChange={e => setName(e.target.value)} /></label>
+        {forwarding && <details className="rounded-lg border p-3"><summary className="cursor-pointer text-sm">{text('更多选项', 'More options')}</summary><div className="mt-3 space-y-3">
           {forwarding && <label className="block space-y-2" htmlFor={`${id}-ip`}><span className="text-sm">{text('本机 / 局域网地址', 'Local / LAN address')}</span><Input id={`${id}-ip`} value={localIP} onChange={e => setLocalIP(e.target.value)} /></label>}
-        </div></details>
+        </div></details>}
       </fieldset>
       <div className="rounded-lg bg-muted p-3 text-sm space-y-2" aria-live="polite">
         <p className="font-medium">{created ? text('已创建 · 连接信息', 'Created · Connection details') : text('连接预览', 'Connection preview')}</p>

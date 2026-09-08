@@ -20,9 +20,13 @@ import {
 import { useTranslation } from 'react-i18next'
 import { toast } from 'sonner'
 import { IsIDValid } from '@/lib/consts'
+import { useStore } from '@nanostores/react'
+import { $userInfo } from '@/store/user'
 
 export const CreateClientDialog = ({refetchTrigger}: {refetchTrigger?: (randStr: string) => void}) => {
-  const { t } = useTranslation()
+  const { t, i18n } = useTranslation()
+  const user = useStore($userInfo)
+  const zh = i18n.language.startsWith('zh')
   const [clientID, setClientID] = useState<string | undefined>()
   const newClient = useMutation({
     mutationFn: initClient,
@@ -60,8 +64,11 @@ export const CreateClientDialog = ({refetchTrigger}: {refetchTrigger?: (randStr:
           <DialogDescription>{t('client.create.description')}</DialogDescription>
         </DialogHeader>
 
-        <Label>{t('client.create.id')}</Label>
-        <Input value={clientID} onChange={(e) => setClientID(e.target.value)} />
+        <Label htmlFor="new-client-name">{zh ? '客户端名称' : 'Client name'}</Label>
+        <Input id="new-client-name" placeholder={zh ? '例如 home、office' : 'e.g. home, office'} value={clientID || ''} onChange={(e) => setClientID(e.target.value)} />
+        <p className="text-sm text-muted-foreground">{zh ? '只填写名称（字母、数字、下划线或短横线），用户前缀自动添加。' : 'Enter a name using letters, digits, underscores or hyphens. The user prefix is automatic.'}</p>
+        {user?.userName && clientID && <p className="break-all font-mono text-xs">{user.userName}.c.{clientID}</p>
+        }
         <DialogFooter>
           <Button onClick={handleNewClient}
           disabled={!IsIDValid(clientID)}

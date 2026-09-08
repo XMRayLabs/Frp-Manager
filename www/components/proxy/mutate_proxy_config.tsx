@@ -3,7 +3,6 @@
 import { useEffect, useState } from 'react'
 import { useMutation } from '@tanstack/react-query'
 import { Label } from '@/components/ui/label'
-import { Input } from '@/components/ui/input'
 import { Button } from '@/components/ui/button'
 import {
   Dialog,
@@ -30,6 +29,10 @@ import { $proxyTableRefetchTrigger } from '@/store/refetch-trigger'
 import { Switch } from '../ui/switch'
 import { Textarea } from '../ui/textarea'
 import { QuickProxyForm } from './quick_proxy_form'
+import { nanoid } from 'nanoid'
+import { useStore } from '@nanostores/react'
+import { $userInfo } from '@/store/user'
+import { automaticProxyName } from '@/lib/proxy-name'
 
 export type ProxyConfigMutateDialogProps = {
   overwrite?: boolean
@@ -71,7 +74,8 @@ const AdvancedProxyConfigMutateForm = ({
   const [newClientID, setNewClientID] = useState<string | undefined>()
   const [newServerID, setNewServerID] = useState<string | undefined>()
   const [proxyConfigs, setProxyConfigs] = useState<TypedProxyConfig[]>([])
-  const [proxyName, setProxyName] = useState<string | undefined>('')
+  const [proxyName, setProxyName] = useState<string | undefined>(() => nanoid(8))
+  const user = useStore($userInfo)
   const [proxyType, setProxyType] = useState<ProxyType>('http')
   const [selectedServer, setSelectedServer] = useState<Server | undefined>()
   const supportedProxyTypes: ProxyType[] = ['http', 'tcp', 'udp']
@@ -86,7 +90,7 @@ const AdvancedProxyConfigMutateForm = ({
         clientId: newClientID!,
         serverId: newServerID!,
         config: ObjToUint8Array({
-          proxies: proxyConfigs,
+          proxies: proxyConfigs.map(config => overwrite || defaultProxyConfig ? config : { ...config, name: automaticProxyName(user!.userName!, newClientID!, newServerID!, config, proxyName!) }),
         } as ClientConfig),
         overwrite,
       }),
@@ -157,13 +161,6 @@ const AdvancedProxyConfigMutateForm = ({
                 </div>
               </div>
             )}
-          <Label>{t('proxy.config.proxy_name')} </Label>
-          <Input
-            className="text-sm"
-            defaultValue={proxyName}
-            onChange={(e) => setProxyName(e.target.value)}
-            disabled={disableChangeProxyName}
-          />
           {proxyName && newClientID && newServerID && (
             <TypedProxyForm
               serverID={newServerID}
@@ -201,7 +198,7 @@ const AdvancedProxyConfigMutateForm = ({
         </>
       )}
       <Button
-        disabled={advancedMode ? proxyConfigs.length === 0 : !TypedProxyConfigValid(proxyConfigs[0])}
+        disabled={!user?.userName || !newClientID || !newServerID || createProxyConfigMutation.isPending || (advancedMode ? proxyConfigs.length === 0 : !TypedProxyConfigValid(proxyConfigs[0]))}
         onClick={() => {
           if (!TypedProxyConfigValid(proxyConfigs[0])) {
             toast(t('proxy.config.invalid_config'))
