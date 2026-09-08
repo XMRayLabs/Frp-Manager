@@ -66,6 +66,7 @@ export function Combobox({
       <PopoverTrigger asChild>
         <Button
           variant="outline"
+          type="button"
           role="combobox"
           aria-expanded={open}
           className={cn("w-full justify-between font-normal px-3", className,

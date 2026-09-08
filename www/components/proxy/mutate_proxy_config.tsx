@@ -29,6 +29,7 @@ import { toast } from 'sonner'
 import { $proxyTableRefetchTrigger } from '@/store/refetch-trigger'
 import { Switch } from '../ui/switch'
 import { Textarea } from '../ui/textarea'
+import { QuickProxyForm } from './quick_proxy_form'
 
 export type ProxyConfigMutateDialogProps = {
   overwrite?: boolean
@@ -59,7 +60,7 @@ export const ProxyConfigMutateDialog = ({ ...props }: ProxyConfigMutateDialogPro
   )
 }
 
-export const ProxyConfigMutateForm = ({
+const AdvancedProxyConfigMutateForm = ({
   overwrite,
   defaultProxyConfig,
   defaultOriginalProxyConfig,
@@ -213,4 +214,21 @@ export const ProxyConfigMutateForm = ({
       </Button>
     </>
   )
+}
+
+export const ProxyConfigMutateForm = (props: ProxyConfigMutateDialogProps) => {
+  const { i18n } = useTranslation()
+  const zh = i18n.language.startsWith('zh')
+  const [advanced, setAdvanced] = useState(false)
+  if (props.defaultProxyConfig || props.defaultOriginalProxyConfig || props.overwrite || props.disableChangeProxyName) {
+    return <AdvancedProxyConfigMutateForm {...props} />
+  }
+  return <div className="space-y-4">
+    <div className="flex gap-2">
+      <Button type="button" variant={advanced ? 'outline' : 'default'} aria-pressed={!advanced} onClick={() => setAdvanced(false)}>{zh ? '快捷配置' : 'Quick setup'}</Button>
+      <Button type="button" variant={advanced ? 'default' : 'outline'} aria-pressed={advanced} onClick={() => setAdvanced(true)}>{zh ? '完整配置' : 'Full configuration'}</Button>
+    </div>
+    <div hidden={advanced}><QuickProxyForm onSuccess={props.onSuccess} /></div>
+    <div hidden={!advanced}><AdvancedProxyConfigMutateForm {...props} /></div>
+  </div>
 }
