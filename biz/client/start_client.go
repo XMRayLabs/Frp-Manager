@@ -1,0 +1,32 @@
+package client
+
+import (
+	"github.com/Sakurame1/frp-manager/pb"
+	"github.com/Sakurame1/frp-manager/services/app"
+	"github.com/Sakurame1/frp-manager/utils/logger"
+)
+
+func StartFRPCHandler(ctx *app.Context, req *pb.StartFRPCRequest) (*pb.StartFRPCResponse, error) {
+	logger.Logger(ctx).Infof("client get a start client request, origin is: [%+v]", req)
+
+	if err := PullConfig(ctx.GetApp(), req.GetClientId(), ctx.GetApp().GetConfig().Client.Secret); err != nil {
+		logger.Logger(ctx).WithError(err).Error("cannot pull client config")
+		return nil, err
+	}
+
+	if ctx.GetApp().GetConfig().Client.Features.EnableFunctions {
+		if err := PullWorkers(ctx.GetApp(), req.GetClientId(), ctx.GetApp().GetConfig().Client.Secret); err != nil {
+			logger.Logger(ctx).WithError(err).Error("cannot pull client workers")
+			return nil, err
+		}
+	}
+
+	if err := PullWireGuards(ctx.GetApp(), req.GetClientId(), ctx.GetApp().GetConfig().Client.Secret); err != nil {
+		logger.Logger(ctx).WithError(err).Error("cannot pull client wireguards")
+		return nil, err
+	}
+
+	return &pb.StartFRPCResponse{
+		Status: &pb.Status{Code: pb.RespCode_RESP_CODE_SUCCESS, Message: "ok"},
+	}, nil
+}

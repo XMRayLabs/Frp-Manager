@@ -1,0 +1,180 @@
+package master
+
+import (
+	"embed"
+	"slices"
+	"strings"
+	"time"
+
+	"github.com/Sakurame1/frp-manager/biz/master/auth"
+	"github.com/Sakurame1/frp-manager/biz/master/client"
+	"github.com/Sakurame1/frp-manager/biz/master/permission"
+	"github.com/Sakurame1/frp-manager/biz/master/platform"
+	"github.com/Sakurame1/frp-manager/biz/master/proxy"
+	"github.com/Sakurame1/frp-manager/biz/master/server"
+	"github.com/Sakurame1/frp-manager/biz/master/shell"
+	"github.com/Sakurame1/frp-manager/biz/master/streamlog"
+	"github.com/Sakurame1/frp-manager/biz/master/user"
+	"github.com/Sakurame1/frp-manager/biz/master/worker"
+	"github.com/Sakurame1/frp-manager/middleware"
+	"github.com/Sakurame1/frp-manager/services/app"
+	"github.com/gin-gonic/gin"
+
+	wgHandler "github.com/Sakurame1/frp-manager/biz/master/wg"
+)
+
+func NewRouter(fs embed.FS, appInstance app.Application) *gin.Engine {
+	router := gin.Default()
+	trustedProxies := strings.Split(appInstance.GetConfig().App.TrustedProxies, ",")
+	trustedProxies = slices.DeleteFunc(trustedProxies, func(proxy string) bool {
+		return strings.TrimSpace(proxy) == ""
+	})
+	for i := range trustedProxies {
+		trustedProxies[i] = strings.TrimSpace(trustedProxies[i])
+	}
+	_ = router.SetTrustedProxies(trustedProxies)
+	router.Use(middleware.SecurityHeaders())
+	HandleStaticFile(fs, router)
+	ConfigureRouter(appInstance, router)
+	return router
+}
+
+func ConfigureRouter(appInstance app.Application, router *gin.Engine) {
+	loginLimiter := middleware.NewRateLimiter(10, time.Minute)
+	registerLimiter := middleware.NewRateLimiter(5, time.Minute)
+	certLimiter := middleware.NewRateLimiter(1200, time.Minute)
+
+	router.POST("/auth", loginLimiter.Handler(), auth.MakeGinHandlerFunc(appInstance, auth.HandleLogin))
+
+	api := router.Group("/api")
+	api.POST("/v1/auth/cert", certLimiter.Handler(), app.Wrapper(appInstance, auth.GetClientCert))
+	api.POST("/v1/auth/login", loginLimiter.Handler(), app.Wrapper(appInstance, auth.LoginHandler))
+	api.POST("/v1/auth/register", registerLimiter.Handler(), auth.RegisterGinHandler(appInstance))
+	api.GET("/v1/auth/logout", auth.RemoveJWTHandler(appInstance))
+
+	v1 := api.Group("/v1", middleware.JWTAuth(appInstance), middleware.AuthCtx(appInstance), middleware.RBAC(appInstance))
+	{
+		userRouter := v1.Group("/user")
+		{
+			userRouter.POST("/get", app.Wrapper(appInstance, user.GetUserInfoHandler))
+			userRouter.POST("/update", app.Wrapper(appInstance, user.UpdateUserInfoHander))
+			userRouter.POST("/sign-token", app.Wrapper(appInstance, user.SignTokenHandler))
+		}
+		platformRouter := v1.Group("/platform")
+		{
+			platformRouter.GET("/baseinfo", platform.GetPlatformInfo(appInstance))
+			platformRouter.POST("/clientsstatus", app.Wrapper(appInstance, platform.GetClientsStatus))
+		}
+		clientRouter := v1.Group("/client")
+		{
+			clientRouter.POST("/get", app.Wrapper(appInstance, client.GetClientHandler))
+			clientRouter.POST("/init", app.Wrapper(appInstance, client.InitClientHandler))
+			clientRouter.POST("/delete", app.Wrapper(appInstance, client.DeleteClientHandler))
+			clientRouter.POST("/list", app.Wrapper(appInstance, client.ListClientsHandler))
+			clientRouter.POST("/install_workerd", app.Wrapper(appInstance, worker.InstallWorkerd))
+			clientRouter.POST("/upgrade", app.Wrapper(appInstance, client.UpgradeFrppHandler))
+		}
+		serverRouter := v1.Group("/server")
+		{
+			serverRouter.POST("/get", app.Wrapper(appInstance, server.GetServerHandler))
+			serverRouter.POST("/init", app.Wrapper(appInstance, server.InitServerHandler))
+			serverRouter.POST("/delete", app.Wrapper(appInstance, server.DeleteServerHandler))
+			serverRouter.POST("/list", app.Wrapper(appInstance, server.ListServersHandler))
+		}
+		frpcRouter := v1.Group("/frpc")
+		{
+			frpcRouter.POST("/update", app.Wrapper(appInstance, client.UpdateFrpcHander))
+			frpcRouter.POST("/delete", app.Wrapper(appInstance, client.RemoveFrpcHandler))
+			frpcRouter.POST("/stop", app.Wrapper(appInstance, client.StopFRPCHandler))
+			frpcRouter.POST("/start", app.Wrapper(appInstance, client.StartFRPCHandler))
+		}
+		frpsRouter := v1.Group("/frps")
+		{
+			frpsRouter.POST("/update", app.Wrapper(appInstance, server.UpdateFrpsHander))
+			frpsRouter.POST("/delete", app.Wrapper(appInstance, server.RemoveFrpsHandler))
+		}
+		proxyRouter := v1.Group("/proxy")
+		{
+			proxyRouter.POST("/get_by_cid", app.Wrapper(appInstance, proxy.GetProxyStatsByClientID))
+			proxyRouter.POST("/get_by_sid", app.Wrapper(appInstance, proxy.GetProxyStatsByServerID))
+			proxyRouter.POST("/get_all_stats", app.Wrapper(appInstance, proxy.GetAllProxyStats))
+			proxyRouter.POST("/list_configs", app.Wrapper(appInstance, proxy.ListProxyConfigs))
+			proxyRouter.POST("/create_config", app.Wrapper(appInstance, proxy.CreateProxyConfig))
+			proxyRouter.POST("/update_config", app.Wrapper(appInstance, proxy.UpdateProxyConfig))
+			proxyRouter.POST("/delete_config", app.Wrapper(appInstance, proxy.DeleteProxyConfig))
+			proxyRouter.POST("/get_config", app.Wrapper(appInstance, proxy.GetProxyConfig))
+			proxyRouter.POST("/get_statuses", app.Wrapper(appInstance, proxy.GetProxyStatuses))
+			proxyRouter.POST("/start_proxy", app.Wrapper(appInstance, proxy.StartProxy))
+			proxyRouter.POST("/stop_proxy", app.Wrapper(appInstance, proxy.StopProxy))
+		}
+		workerHandler := v1.Group("/worker")
+		{
+			workerHandler.POST("/get", app.Wrapper(appInstance, worker.GetWorker))
+			workerHandler.POST("/status", app.Wrapper(appInstance, worker.GetWorkerStatus))
+			workerHandler.POST("/create", app.Wrapper(appInstance, worker.CreateWorker))
+			workerHandler.POST("/list", app.Wrapper(appInstance, worker.ListWorkers))
+			workerHandler.POST("/remove", app.Wrapper(appInstance, worker.RemoveWorker))
+			workerHandler.POST("/update", app.Wrapper(appInstance, worker.UpdateWorker))
+			workerHandler.POST("/redeploy", app.Wrapper(appInstance, worker.RedeployWorker))
+			workerHandler.POST("/create_ingress", app.Wrapper(appInstance, worker.CreateWorkerIngress))
+			workerHandler.POST("/get_ingress", app.Wrapper(appInstance, worker.GetWorkerIngress))
+		}
+		permissionRouter := v1.Group("/permission")
+		{
+			permissionRouter.POST("/grant", permission.Share(appInstance))
+			permissionRouter.POST("/share", permission.Share(appInstance))
+			permissionRouter.POST("/revoke", permission.Revoke(appInstance))
+			permissionRouter.POST("/resource/permissions", permission.ListResourcePermissions(appInstance))
+			permissionRouter.POST("/user/list", permission.ListUsers(appInstance))
+			permissionRouter.POST("/user/update", permission.UpdateUser(appInstance))
+			permissionRouter.POST("/group/create", permission.CreateGroup(appInstance))
+			permissionRouter.POST("/group/delete", permission.DeleteGroup(appInstance))
+			permissionRouter.POST("/group/list", permission.ListGroups(appInstance))
+			permissionRouter.POST("/group/member/add", permission.AddGroupMember(appInstance))
+			permissionRouter.POST("/group/member/remove", permission.RemoveGroupMember(appInstance))
+			permissionRouter.POST("/invite/create", permission.CreateInvite(appInstance))
+			permissionRouter.POST("/invite/list", permission.ListInvites(appInstance))
+			permissionRouter.POST("/invite/update", permission.UpdateInvite(appInstance))
+			permissionRouter.POST("/register-setting/get", permission.GetRegisterSetting(appInstance))
+			permissionRouter.POST("/register-setting/update", permission.UpdateRegisterSetting(appInstance))
+		}
+
+		wgRouter := v1.Group("/wg")
+		{
+			// network
+			wgRouter.POST("/network/create", app.Wrapper(appInstance, wgHandler.CreateNetwork))
+			wgRouter.POST("/network/delete", app.Wrapper(appInstance, wgHandler.DeleteNetwork))
+			wgRouter.POST("/network/update", app.Wrapper(appInstance, wgHandler.UpdateNetwork))
+			wgRouter.POST("/network/get", app.Wrapper(appInstance, wgHandler.GetNetwork))
+			wgRouter.POST("/network/list", app.Wrapper(appInstance, wgHandler.ListNetworks))
+			wgRouter.POST("/network/topology", app.Wrapper(appInstance, wgHandler.GetNetworkTopology))
+
+			// endpoint
+			wgRouter.POST("/endpoint/create", app.Wrapper(appInstance, wgHandler.CreateEndpoint))
+			wgRouter.POST("/endpoint/delete", app.Wrapper(appInstance, wgHandler.DeleteEndpoint))
+			wgRouter.POST("/endpoint/update", app.Wrapper(appInstance, wgHandler.UpdateEndpoint))
+			wgRouter.POST("/endpoint/get", app.Wrapper(appInstance, wgHandler.GetEndpoint))
+			wgRouter.POST("/endpoint/list", app.Wrapper(appInstance, wgHandler.ListEndpoints))
+
+			// link
+			wgRouter.POST("/link/create", app.Wrapper(appInstance, wgHandler.CreateWireGuardLink))
+			wgRouter.POST("/link/delete", app.Wrapper(appInstance, wgHandler.DeleteWireGuardLink))
+			wgRouter.POST("/link/update", app.Wrapper(appInstance, wgHandler.UpdateWireGuardLink))
+			wgRouter.POST("/link/get", app.Wrapper(appInstance, wgHandler.GetWireGuardLink))
+			wgRouter.POST("/link/list", app.Wrapper(appInstance, wgHandler.ListWireGuardLinks))
+
+			// wireguard
+			wgRouter.POST("/create", app.Wrapper(appInstance, wgHandler.CreateWireGuard))
+			wgRouter.POST("/delete", app.Wrapper(appInstance, wgHandler.DeleteWireGuard))
+			wgRouter.POST("/update", app.Wrapper(appInstance, wgHandler.UpdateWireGuard))
+			wgRouter.POST("/restart", app.Wrapper(appInstance, wgHandler.RestartWireGuard))
+			wgRouter.POST("/get", app.Wrapper(appInstance, wgHandler.GetWireGuard))
+			wgRouter.POST("/list", app.Wrapper(appInstance, wgHandler.ListWireGuards))
+			wgRouter.POST("/runtime/get", app.Wrapper(appInstance, wgHandler.GetWireGuardRuntimeInfo))
+			wgRouter.POST("/runtime/list", app.Wrapper(appInstance, wgHandler.GetWireGuardRuntimeInfos))
+		}
+
+		v1.GET("/pty/:clientID", shell.PTYHandler(appInstance))
+		v1.GET("/log", streamlog.GetLogHandler(appInstance))
+	}
+}

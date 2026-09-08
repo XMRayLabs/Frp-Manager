@@ -1,0 +1,104 @@
+{
+  "name": "frp-manager-client-ui",
+  "private": true,
+  "version": "1.0.0",
+  "description": "Desktop and mobile client manager for frp-manager",
+  "author": "Sakurame1",
+  "engines": {
+    "node": ">=24 <25"
+  },
+  "productName": "frp-manager Client",
+  "main": "electron/main.cjs",
+  "type": "module",
+  "scripts": {
+    "dev": "vite",
+    "dev:desktop": "concurrently -k \"pnpm dev --host 127.0.0.1\" \"wait-on http://127.0.0.1:5173 && electron .\"",
+    "prepare:core:win": "powershell -NoProfile -ExecutionPolicy Bypass -File scripts/prepare-core-win.ps1",
+    "prepare:core:mac": "bash scripts/prepare-core-mac.sh",
+    "prepare:core:android": "bash scripts/prepare-core-android.sh",
+    "build": "tsc -b && vite build",
+    "build:desktop": "pnpm build && electron-builder",
+    "build:win": "pnpm prepare:core:win && pnpm build && electron-builder --win",
+    "build:mac": "pnpm prepare:core:mac && pnpm build && electron-builder --mac",
+    "cap:add:android": "cap add android",
+    "cap:sync": "pnpm build && cap sync",
+    "build:apk": "pnpm prepare:core:android && pnpm build && cap sync android && cap build android",
+    "lint": "oxlint",
+    "test:electron": "node --test electron/*.test.cjs",
+    "preview": "vite preview",
+    "test:parser": "node --experimental-strip-types --test tests/parser.test.mjs"
+  },
+  "dependencies": {
+    "@capacitor/android": "^8.4.1",
+    "@capacitor/core": "^8.4.1",
+    "lucide-react": "^1.23.0",
+    "react": "^19.2.7",
+    "react-dom": "^19.2.7"
+  },
+  "devDependencies": {
+    "@capacitor/cli": "^8.4.1",
+    "@types/node": "^24.13.2",
+    "@types/react": "^19.2.17",
+    "@types/react-dom": "^19.2.3",
+    "@vitejs/plugin-react": "^6.0.3",
+    "concurrently": "^10.0.3",
+    "electron": "^43.0.0",
+    "electron-builder": "^26.15.3",
+    "oxlint": "^1.71.0",
+    "typescript": "~6.0.2",
+    "vite": "^8.1.1",
+    "wait-on": "^9.0.10"
+  },
+  "build": {
+    "appId": "de.xmray.frpmanager.client",
+    "productName": "frp-manager Client",
+    "directories": {
+      "output": "release"
+    },
+    "files": [
+      "dist/**/*",
+      "electron/**/*",
+      "package.json"
+    ],
+    "extraResources": [
+      {
+        "from": "resources/binaries",
+        "to": ".",
+        "filter": [
+          "**/*"
+        ]
+      }
+    ],
+    "win": {
+      "target": [
+        "nsis"
+      ],
+      "icon": "resources/icon.ico",
+      "artifactName": "frp-manager-client-${version}-${arch}.${ext}"
+    },
+    "mac": {
+      "category": "public.app-category.utilities",
+      "icon": "resources/icon.png",
+      "hardenedRuntime": true,
+      "notarize": true,
+      "entitlements": "build/entitlements.mac.plist",
+      "entitlementsInherit": "build/entitlements.mac.plist",
+      "target": [
+        "dmg",
+        "zip"
+      ],
+      "artifactName": "frp-manager-client-${version}-${arch}.${ext}"
+    },
+    "nsis": {
+      "oneClick": false,
+      "allowToChangeInstallationDirectory": true,
+      "createDesktopShortcut": true,
+      "shortcutName": "frp-manager Client"
+    }
+  },
+  "pnpm": {
+    "ignoredBuiltDependencies": [
+      "electron-winstaller"
+    ]
+  }
+}

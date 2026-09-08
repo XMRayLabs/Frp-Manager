@@ -1,0 +1,17 @@
+defaultBaseImage: jacoblincool/workerd
+
+builds:
+  - id: frpp
+    dir: .
+    main: ./cmd/frpp
+    ldflags:
+      - -checklinkname=0
+      - -s -w
+      - -X github.com/Sakurame1/frp-manager/conf.buildDate={{.Date}}
+      - -X github.com/Sakurame1/frp-manager/conf.gitCommit={{.Git.FullCommit}}
+      - -X github.com/Sakurame1/frp-manager/conf.gitVersion={{.Git.Tag}}
+      - -X github.com/Sakurame1/frp-manager/conf.gitBranch={{.Git.Branch}}
+
+defaultPlatforms:
+  - linux/arm64
+  - linux/amd64

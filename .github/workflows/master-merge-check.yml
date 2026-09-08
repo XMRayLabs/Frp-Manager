@@ -1,0 +1,89 @@
+name: Merge Check
+
+on:
+  push:
+    branches: [main]
+  pull_request:
+    branches: [main]
+
+jobs:
+  merge-check:
+    runs-on: ubuntu-latest
+    env:
+      KO_DOCKER_REPO: docker.io/sakurame1/frp-manager
+    steps:
+      - name: Checkout code
+        uses: actions/checkout@v4
+        with:
+          fetch-depth: 0
+
+      - name: Setup Node.js
+        uses: actions/setup-node@v4
+        with:
+          node-version: 24
+
+      - name: Setup Go
+        uses: actions/setup-go@v5
+        with:
+          go-version: '1.25.x'
+
+      - name: Install npm dependencies
+        run: |
+          cd www
+          npm install -g pnpm
+          pnpm install --frozen-lockfile
+
+      - name: Audit frontend production dependencies
+        run: |
+          cd www
+          pnpm audit --prod
+
+      - name: Lint frontend
+        run: |
+          cd www
+          pnpm run lint
+
+      - name: Build client UI
+        run: |
+          cd client-ui
+          pnpm install --frozen-lockfile
+          pnpm audit --prod
+          pnpm run lint
+          pnpm run build
+
+      - name: Download Go modules
+        run: |
+          go mod download
+
+      - name: Install Protoc and plugins
+        run: |
+          go install google.golang.org/protobuf/cmd/protoc-gen-go@latest
+          go install google.golang.org/grpc/cmd/protoc-gen-go-grpc@latest
+      - name: Setup Protoc
+        run: |
+          sudo apt-get update
+          sudo apt-get install -y protobuf-compiler
+      - name: Compile server binaries
+        run: bash ./build.sh
+      - name: Verify embedded frontend assets
+        run: test -d cmd/frpp/out && find cmd/frpp/out -type f | grep -q .
+
+      - name: Upload build artifacts
+        uses: actions/upload-artifact@v4
+        with:
+          name: build-output
+          path: |
+            dist
+            www/out
+
+      - name: Run Go tests
+        run: |
+          go test ./... -v
+
+      - name: Build Docker image (check only)
+        uses: ko-build/setup-ko@v0.9
+      - name: Ko dry-run build
+        run: |
+          ko build ./cmd/frpp --bare --push=false
+          mv .ko.workerd.yaml .ko.yaml
+          ko build ./cmd/frpp --bare --push=false

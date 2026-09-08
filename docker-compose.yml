@@ -1,0 +1,40 @@
+name: frp-manager
+
+services:
+  frp-manager:
+    image: sakurame1/frp-manager:${FRP_MANAGER_VERSION:-latest}
+    container_name: frp-manager
+    command: ["master"]
+    restart: unless-stopped
+    network_mode: host
+    read_only: true
+    security_opt:
+      - no-new-privileges:true
+    cap_drop:
+      - ALL
+    tmpfs:
+      - /tmp:size=128m,mode=1777
+    volumes:
+      - frp-manager-data:/data
+    environment:
+      TZ: UTC0
+      APP_GLOBAL_SECRET: ${APP_GLOBAL_SECRET:?Set APP_GLOBAL_SECRET in .env}
+      APP_COOKIE_SECURE: ${APP_COOKIE_SECURE:-true}
+      APP_COOKIE_HTTP_ONLY: "true"
+      APP_ENABLE_REGISTER: ${APP_ENABLE_REGISTER:-false}
+      APP_AUTO_UPDATE: ${APP_AUTO_UPDATE:-true}
+      APP_TRUSTED_PROXIES: ${APP_TRUSTED_PROXIES:-127.0.0.1,::1}
+      APP_GITHUB_PROXY_URL: ""
+      MASTER_API_HOST: ${MASTER_API_HOST:?Set MASTER_API_HOST in .env}
+      MASTER_API_PORT: ${MASTER_API_PORT:-9000}
+      MASTER_API_SCHEME: ${MASTER_API_SCHEME:-https}
+      MASTER_RPC_HOST: ${MASTER_RPC_HOST:?Set MASTER_RPC_HOST in .env}
+      MASTER_RPC_PORT: ${MASTER_RPC_PORT:-9001}
+      CLIENT_TLS_RPC: "true"
+      CLIENT_TLS_INSECURE_SKIP_VERIFY: "false"
+      CLIENT_FEATURES_ENABLE_REMOTE_SHELL: "true"
+      DB_TYPE: sqlite3
+      DB_DSN: /data/data.db?_pragma=journal_mode(WAL)&_pragma=busy_timeout(5000)
+
+volumes:
+  frp-manager-data:

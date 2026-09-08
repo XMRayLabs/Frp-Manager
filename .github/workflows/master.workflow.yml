@@ -1,0 +1,63 @@
+name: Master Build
+
+on:
+  push:
+    branches: [main]
+  pull_request:
+    branches: [main]
+  workflow_dispatch:
+
+permissions:
+  contents: read
+
+jobs:
+  build-static:
+    name: Build core artifacts
+    runs-on: ubuntu-latest
+    steps:
+      - uses: actions/checkout@v4
+        with:
+          fetch-depth: 0
+
+      - name: Setup Node.js
+        uses: actions/setup-node@v4
+        with:
+          node-version: 24
+
+      - name: Setup Go
+        uses: actions/setup-go@v5
+        with:
+          go-version: "1.25.x"
+
+      - name: Install pnpm
+        run: npm install -g pnpm@10
+
+      - name: Install Go dependencies
+        run: |
+          go mod download
+          go install google.golang.org/protobuf/cmd/protoc-gen-go@latest
+          go install google.golang.org/grpc/cmd/protoc-gen-go-grpc@latest
+
+      - name: Install Protoc
+        run: |
+          sudo apt-get update
+          sudo apt-get install -y protobuf-compiler
+
+      - name: Compile server and client binaries
+        env:
+          RELEASE_VERSION: "1.0.0"
+        run: |
+          printf '%s\n' "$RELEASE_VERSION" > VERSION
+          bash ./build.sh
+
+      - name: Verify embedded frontend assets
+        run: test -d cmd/frpp/out && find cmd/frpp/out -type f | grep -q .
+
+      - name: Upload build artifacts
+        if: github.event_name != 'pull_request'
+        uses: actions/upload-artifact@v4
+        with:
+          name: master-build-output
+          path: |
+            dist/*
+            cmd/frpp/out/**

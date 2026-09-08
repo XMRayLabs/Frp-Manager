@@ -1,0 +1,309 @@
+digraph gocallvis {
+    label="github.com/Sakurame1/frp-manager/cmd";
+    labeljust="l";
+    fontname="Arial";
+    fontsize="14";
+    rankdir="LR";
+    bgcolor="lightgray";
+    style="solid";
+    penwidth="0.5";
+    pad="0.0";
+    nodesep="0.35";
+
+    node [shape="box" style="filled,rounded" fillcolor="honeydew" fontname="Verdana" penwidth="1.0" margin="0.05,0.0"];
+    edge [minlen="2"]
+
+    subgraph "cluster_focus" {
+        bgcolor="#e6ecfa";
+label="main";
+labelloc="t";
+labeljust="c";
+fontsize="18";
+        
+        "github.com/Sakurame1/frp-manager/cmd.runClient" [ fillcolor="lightblue" label="runClient" penwidth="0.5" tooltip="github.com/Sakurame1/frp-manager/cmd.runClient | defined in client.go:12\nat client.go:31: calling [github.com/Sakurame1/frp-manager/watcher.NewClient]\nat client.go:34: calling [github.com/Sakurame1/frp-manager/cmd.initClientOnce]\nat client.go:28: calling [github.com/Sakurame1/frp-manager/services/rpcclient.GetClientRPCSerivce]\nat client.go:29: calling [(*github.com/Sakurame1/frp-manager/services/rpcclient.ClientRPC).Stop]\nat client.go:22: calling [github.com/Sakurame1/frp-manager/services/rpcclient.MustInitClientRPCSerivce]\nat client.go:32: calling [(*github.com/Sakurame1/frp-manager/watcher.client).Stop]" ]
+        "github.com/Sakurame1/frp-manager/cmd.initClientOnce" [ label="initClientOnce" penwidth="0.5" tooltip="github.com/Sakurame1/frp-manager/cmd.initClientOnce | defined in client.go:42\nat client.go:43: calling [github.com/Sakurame1/frp-manager/biz/client.PullConfig]" fillcolor="lightblue" ]
+        "github.com/Sakurame1/frp-manager/cmd.initCommand$1" [ fillcolor="lightblue" label="initCommand$1" style="dotted,filled" tooltip="github.com/Sakurame1/frp-manager/cmd.initCommand$1 | defined in cmd.go:30\nat cmd.go:31: calling [github.com/Sakurame1/frp-manager/cmd.runClient]" ]
+        "github.com/Sakurame1/frp-manager/cmd.runServer" [ penwidth="0.5" tooltip="github.com/Sakurame1/frp-manager/cmd.runServer | defined in server.go:14\nat server.go:38: calling [(*github.com/Sakurame1/frp-manager/watcher.client).Stop]\nat server.go:37: calling [github.com/Sakurame1/frp-manager/watcher.NewClient]\nat server.go:35: calling [(*github.com/Sakurame1/frp-manager/services/rpcclient.ClientRPC).Stop]\nat server.go:22: calling [github.com/Sakurame1/frp-manager/conf.ServerAPIListenAddr]\nat server.go:24: calling [github.com/Sakurame1/frp-manager/services/api.GetAPIService]\nat server.go:25: calling [(*github.com/Sakurame1/frp-manager/services/api.server).Stop]\nat server.go:21: calling [github.com/Sakurame1/frp-manager/biz/server.NewRouter]\nat server.go:22: calling [github.com/Sakurame1/frp-manager/services/api.MustInitApiService]\nat server.go:40: calling [github.com/Sakurame1/frp-manager/cmd.initServerOnce]\nat server.go:27: calling [github.com/Sakurame1/frp-manager/services/rpcclient.MustInitClientRPCSerivce]\nat server.go:34: calling [github.com/Sakurame1/frp-manager/services/rpcclient.GetClientRPCSerivce]" fillcolor="lightblue" label="runServer" ]
+        "github.com/Sakurame1/frp-manager/cmd.initServerOnce" [ fillcolor="lightblue" label="initServerOnce" penwidth="0.5" tooltip="github.com/Sakurame1/frp-manager/cmd.initServerOnce | defined in server.go:49\nat server.go:50: calling [github.com/Sakurame1/frp-manager/biz/server.PullConfig]" ]
+        "github.com/Sakurame1/frp-manager/cmd.initCommand$2" [ fillcolor="lightblue" label="initCommand$2" style="dotted,filled" tooltip="github.com/Sakurame1/frp-manager/cmd.initCommand$2 | defined in cmd.go:37\nat cmd.go:38: calling [github.com/Sakurame1/frp-manager/cmd.runServer]" ]
+        "github.com/Sakurame1/frp-manager/cmd.runMaster" [ tooltip="github.com/Sakurame1/frp-manager/cmd.runMaster | defined in master.go:20\nat master.go:34: calling [github.com/Sakurame1/frp-manager/conf.FRPsAuthOption]\nat master.go:28: calling [github.com/Sakurame1/frp-manager/biz/master/auth.InitAuth]\nat master.go:37: calling [github.com/Sakurame1/frp-manager/services/server.GetServerSerivce]\nat master.go:23: calling [github.com/Sakurame1/frp-manager/biz/master.NewRouter]\nat master.go:32: calling [github.com/Sakurame1/frp-manager/utils.NewBaseFRPServerUserAuthConfig]\nat master.go:21: calling [github.com/Sakurame1/frp-manager/services/master.MustInitMasterService]\nat master.go:24: calling [github.com/Sakurame1/frp-manager/services/api.MustInitApiService]\nat master.go:26: calling [github.com/Sakurame1/frp-manager/cmd.initDatabase]\nat master.go:33: calling [github.com/Sakurame1/frp-manager/conf.Get]\nat master.go:27: calling [github.com/Sakurame1/frp-manager/cache.InitCache]\nat master.go:24: calling [github.com/Sakurame1/frp-manager/conf.MasterAPIListenAddr]\nat master.go:31: calling [github.com/Sakurame1/frp-manager/services/master.GetMasterSerivce]\nat master.go:38: calling [github.com/Sakurame1/frp-manager/services/api.GetAPIService]" fillcolor="lightblue" label="runMaster" penwidth="0.5" ]
+        "github.com/Sakurame1/frp-manager/cmd.initDatabase" [ fillcolor="lightblue" label="initDatabase" penwidth="0.5" tooltip="github.com/Sakurame1/frp-manager/cmd.initDatabase | defined in master.go:47\nat master.go:48: calling [github.com/Sakurame1/frp-manager/conf.Get]\nat master.go:49: calling [github.com/Sakurame1/frp-manager/conf.Get]\nat master.go:51: calling [github.com/Sakurame1/frp-manager/conf.Get]\nat master.go:53: calling [github.com/Sakurame1/frp-manager/conf.Get]\nat master.go:60: calling [github.com/Sakurame1/frp-manager/conf.Get]\nat master.go:57: calling [github.com/Sakurame1/frp-manager/conf.Get]\nat master.go:63: calling [github.com/Sakurame1/frp-manager/models.GetDBManager]\nat master.go:56: calling [github.com/Sakurame1/frp-manager/models.GetDBManager]\nat master.go:49: calling [github.com/Sakurame1/frp-manager/models.MustInitDBManager]\nat master.go:56: calling [(*github.com/Sakurame1/frp-manager/models.dbManagerImpl).SetDB]\nat master.go:63: calling [(*github.com/Sakurame1/frp-manager/models.dbManagerImpl).Init]" ]
+        "github.com/Sakurame1/frp-manager/cmd.initCommand$3" [ style="dotted,filled" tooltip="github.com/Sakurame1/frp-manager/cmd.initCommand$3 | defined in cmd.go:44\nat cmd.go:45: calling [github.com/Sakurame1/frp-manager/cmd.runMaster]" fillcolor="lightblue" label="initCommand$3" ]
+        "github.com/Sakurame1/frp-manager/cmd.main" [ fillcolor="lightblue" label="main" penwidth="0.5" tooltip="github.com/Sakurame1/frp-manager/cmd.main | defined in main.go:10\nat main.go:16: calling [github.com/Sakurame1/frp-manager/utils.MD5]\nat main.go:13: calling [github.com/Sakurame1/frp-manager/conf.InitConfig]\nat main.go:14: calling [github.com/Sakurame1/frp-manager/rpc.InitRPCClients]\nat main.go:16: calling [github.com/Sakurame1/frp-manager/conf.Get]\nat main.go:12: calling [github.com/Sakurame1/frp-manager/cmd.initCommand]\nat main.go:11: calling [github.com/Sakurame1/frp-manager/cmd.initLogger]" ]
+        "github.com/Sakurame1/frp-manager/cmd.initLogger" [ fillcolor="lightblue" label="initLogger" penwidth="0.5" tooltip="github.com/Sakurame1/frp-manager/cmd.initLogger | defined in cmd.go:59" ]
+        "github.com/Sakurame1/frp-manager/cmd.initCommand" [ penwidth="0.5" tooltip="github.com/Sakurame1/frp-manager/cmd.initCommand | defined in cmd.go:20" fillcolor="lightblue" label="initCommand" ]
+        
+        subgraph "cluster_github.com/Sakurame1/frp-manager/biz/client" {
+        fontsize="16";
+URL="/?f=github.com/Sakurame1/frp-manager/biz/client";
+fontname="Tahoma bold";
+rank="sink";
+label="client";
+tooltip="package: github.com/Sakurame1/frp-manager/biz/client";
+penwidth="0.8";
+style="filled";
+fillcolor="lightyellow";
+        
+        "github.com/Sakurame1/frp-manager/biz/client.PullConfig" [ fillcolor="moccasin" label="PullConfig" penwidth="1.5" tooltip="github.com/Sakurame1/frp-manager/biz/client.PullConfig | defined in rpc_pull_config.go:15" ]
+        
+    }
+
+        subgraph "cluster_github.com/Sakurame1/frp-manager/biz/master" {
+        penwidth="0.8";
+style="filled";
+rank="sink";
+tooltip="package: github.com/Sakurame1/frp-manager/biz/master";
+fontsize="16";
+fillcolor="lightyellow";
+fontname="Tahoma bold";
+label="master";
+URL="/?f=github.com/Sakurame1/frp-manager/biz/master";
+        
+        "github.com/Sakurame1/frp-manager/biz/master.NewRouter" [ penwidth="1.5" tooltip="github.com/Sakurame1/frp-manager/biz/master.NewRouter | defined in handler.go:13" fillcolor="moccasin" label="NewRouter" ]
+        
+    }
+
+        subgraph "cluster_github.com/Sakurame1/frp-manager/biz/master/auth" {
+        fillcolor="lightyellow";
+label="auth";
+URL="/?f=github.com/Sakurame1/frp-manager/biz/master/auth";
+tooltip="package: github.com/Sakurame1/frp-manager/biz/master/auth";
+penwidth="0.8";
+style="filled";
+fontname="Tahoma bold";
+rank="sink";
+fontsize="16";
+        
+        "github.com/Sakurame1/frp-manager/biz/master/auth.InitAuth" [ label="InitAuth" penwidth="1.5" tooltip="github.com/Sakurame1/frp-manager/biz/master/auth.InitAuth | defined in init.go:11" fillcolor="moccasin" ]
+        
+    }
+
+        subgraph "cluster_github.com/Sakurame1/frp-manager/biz/server" {
+        fillcolor="lightyellow";
+fontname="Tahoma bold";
+URL="/?f=github.com/Sakurame1/frp-manager/biz/server";
+tooltip="package: github.com/Sakurame1/frp-manager/biz/server";
+penwidth="0.8";
+style="filled";
+label="server";
+fontsize="16";
+rank="sink";
+        
+        "github.com/Sakurame1/frp-manager/biz/server.NewRouter" [ fillcolor="moccasin" label="NewRouter" penwidth="1.5" tooltip="github.com/Sakurame1/frp-manager/biz/server.NewRouter | defined in auth_handler.go:13" ]
+        "github.com/Sakurame1/frp-manager/biz/server.PullConfig" [ tooltip="github.com/Sakurame1/frp-manager/biz/server.PullConfig | defined in rpc_pull_config.go:15" fillcolor="moccasin" label="PullConfig" penwidth="1.5" ]
+        
+    }
+
+        subgraph "cluster_github.com/Sakurame1/frp-manager/cache" {
+        tooltip="package: github.com/Sakurame1/frp-manager/cache";
+fontsize="16";
+style="filled";
+fillcolor="lightyellow";
+rank="sink";
+penwidth="0.8";
+fontname="Tahoma bold";
+label="cache";
+URL="/?f=github.com/Sakurame1/frp-manager/cache";
+        
+        "github.com/Sakurame1/frp-manager/cache.InitCache" [ label="InitCache" penwidth="1.5" tooltip="github.com/Sakurame1/frp-manager/cache.InitCache | defined in freecache.go:13" fillcolor="moccasin" ]
+        
+    }
+
+        subgraph "cluster_github.com/Sakurame1/frp-manager/conf" {
+        URL="/?f=github.com/Sakurame1/frp-manager/conf";
+tooltip="package: github.com/Sakurame1/frp-manager/conf";
+style="filled";
+rank="sink";
+fillcolor="lightyellow";
+fontname="Tahoma bold";
+label="conf";
+penwidth="0.8";
+fontsize="16";
+        
+        "github.com/Sakurame1/frp-manager/conf.ServerAPIListenAddr" [ label="ServerAPIListenAddr" penwidth="1.5" tooltip="github.com/Sakurame1/frp-manager/conf.ServerAPIListenAddr | defined in helper.go:42" fillcolor="moccasin" ]
+        "github.com/Sakurame1/frp-manager/conf.MasterAPIListenAddr" [ tooltip="github.com/Sakurame1/frp-manager/conf.MasterAPIListenAddr | defined in helper.go:37" fillcolor="moccasin" label="MasterAPIListenAddr" penwidth="1.5" ]
+        "github.com/Sakurame1/frp-manager/conf.Get" [ tooltip="github.com/Sakurame1/frp-manager/conf.Get | defined in settings.go:44" fillcolor="moccasin" label="Get" penwidth="1.5" ]
+        "github.com/Sakurame1/frp-manager/conf.FRPsAuthOption" [ fillcolor="moccasin" label="FRPsAuthOption" penwidth="1.5" tooltip="github.com/Sakurame1/frp-manager/conf.FRPsAuthOption | defined in helper.go:47" ]
+        "github.com/Sakurame1/frp-manager/conf.InitConfig" [ label="InitConfig" penwidth="1.5" tooltip="github.com/Sakurame1/frp-manager/conf.InitConfig | defined in settings.go:48" fillcolor="moccasin" ]
+        
+    }
+
+        subgraph "cluster_github.com/Sakurame1/frp-manager/models" {
+        fontsize="16";
+fillcolor="lightyellow";
+label="models";
+URL="/?f=github.com/Sakurame1/frp-manager/models";
+tooltip="package: github.com/Sakurame1/frp-manager/models";
+penwidth="0.8";
+style="filled";
+fontname="Tahoma bold";
+rank="sink";
+        
+        "github.com/Sakurame1/frp-manager/models.MustInitDBManager" [ fillcolor="moccasin" label="MustInitDBManager" penwidth="1.5" tooltip="github.com/Sakurame1/frp-manager/models.MustInitDBManager | defined in db.go:39" ]
+        "github.com/Sakurame1/frp-manager/models.GetDBManager" [ fillcolor="moccasin" label="GetDBManager" penwidth="1.5" tooltip="github.com/Sakurame1/frp-manager/models.GetDBManager | defined in db.go:55" ]
+        "(*github.com/Sakurame1/frp-manager/models.dbManagerImpl).Init" [ fillcolor="moccasin" label="(*dbManagerImpl).Init" penwidth="1.5" tooltip="(*github.com/Sakurame1/frp-manager/models.dbManagerImpl).Init | defined in db.go:21" ]
+        "(*github.com/Sakurame1/frp-manager/models.dbManagerImpl).SetDB" [ fillcolor="moccasin" label="(*dbManagerImpl).SetDB" penwidth="1.5" tooltip="(*github.com/Sakurame1/frp-manager/models.dbManagerImpl).SetDB | defined in db.go:66" ]
+        
+    }
+
+        subgraph "cluster_github.com/Sakurame1/frp-manager/rpc" {
+        style="filled";
+fontname="Tahoma bold";
+tooltip="package: github.com/Sakurame1/frp-manager/rpc";
+penwidth="0.8";
+fillcolor="lightyellow";
+rank="sink";
+label="rpc";
+URL="/?f=github.com/Sakurame1/frp-manager/rpc";
+fontsize="16";
+        
+        "github.com/Sakurame1/frp-manager/rpc.InitRPCClients" [ penwidth="1.5" tooltip="github.com/Sakurame1/frp-manager/rpc.InitRPCClients | defined in init.go:3" fillcolor="moccasin" label="InitRPCClients" ]
+        
+    }
+
+        subgraph "cluster_github.com/Sakurame1/frp-manager/services/api" {
+        URL="/?f=github.com/Sakurame1/frp-manager/services/api";
+penwidth="0.8";
+fontsize="16";
+rank="sink";
+label="api";
+style="filled";
+fillcolor="lightyellow";
+fontname="Tahoma bold";
+tooltip="package: github.com/Sakurame1/frp-manager/services/api";
+        
+        "github.com/Sakurame1/frp-manager/services/api.MustInitApiService" [ tooltip="github.com/Sakurame1/frp-manager/services/api.MustInitApiService | defined in service.go:29" fillcolor="moccasin" label="MustInitApiService" penwidth="1.5" ]
+        "github.com/Sakurame1/frp-manager/services/api.GetAPIService" [ fillcolor="moccasin" label="GetAPIService" penwidth="1.5" tooltip="github.com/Sakurame1/frp-manager/services/api.GetAPIService | defined in service.go:33" ]
+        "(*github.com/Sakurame1/frp-manager/services/api.server).Stop" [ tooltip="(*github.com/Sakurame1/frp-manager/services/api.server).Stop | defined in service.go:41" fillcolor="moccasin" label="(*server).Stop" penwidth="1.5" ]
+        
+    }
+
+        subgraph "cluster_github.com/Sakurame1/frp-manager/services/master" {
+        style="filled";
+fillcolor="lightyellow";
+rank="sink";
+label="master";
+penwidth="0.8";
+fontsize="16";
+fontname="Tahoma bold";
+URL="/?f=github.com/Sakurame1/frp-manager/services/master";
+tooltip="package: github.com/Sakurame1/frp-manager/services/master";
+        
+        "github.com/Sakurame1/frp-manager/services/master.MustInitMasterService" [ fillcolor="moccasin" label="MustInitMasterService" penwidth="1.5" tooltip="github.com/Sakurame1/frp-manager/services/master.MustInitMasterService | defined in grpc_service.go:21" ]
+        "github.com/Sakurame1/frp-manager/services/master.GetMasterSerivce" [ fillcolor="moccasin" label="GetMasterSerivce" penwidth="1.5" tooltip="github.com/Sakurame1/frp-manager/services/master.GetMasterSerivce | defined in grpc_service.go:29" ]
+        
+    }
+
+        subgraph "cluster_github.com/Sakurame1/frp-manager/services/rpcclient" {
+        fontsize="16";
+fontname="Tahoma bold";
+URL="/?f=github.com/Sakurame1/frp-manager/services/rpcclient";
+tooltip="package: github.com/Sakurame1/frp-manager/services/rpcclient";
+penwidth="0.8";
+fillcolor="lightyellow";
+rank="sink";
+label="rpcclient";
+style="filled";
+        
+        "github.com/Sakurame1/frp-manager/services/rpcclient.MustInitClientRPCSerivce" [ penwidth="1.5" tooltip="github.com/Sakurame1/frp-manager/services/rpcclient.MustInitClientRPCSerivce | defined in rpc_service.go:27" fillcolor="moccasin" label="MustInitClientRPCSerivce" ]
+        "github.com/Sakurame1/frp-manager/services/rpcclient.GetClientRPCSerivce" [ tooltip="github.com/Sakurame1/frp-manager/services/rpcclient.GetClientRPCSerivce | defined in rpc_service.go:35" fillcolor="moccasin" label="GetClientRPCSerivce" penwidth="1.5" ]
+        "(*github.com/Sakurame1/frp-manager/services/rpcclient.ClientRPC).Stop" [ fillcolor="moccasin" label="(*ClientRPC).Stop" penwidth="1.5" tooltip="(*github.com/Sakurame1/frp-manager/services/rpcclient.ClientRPC).Stop | defined in rpc_service.go:62" ]
+        
+    }
+
+        subgraph "cluster_github.com/Sakurame1/frp-manager/services/server" {
+        tooltip="package: github.com/Sakurame1/frp-manager/services/server";
+fontsize="16";
+style="filled";
+fontname="Tahoma bold";
+label="server";
+penwidth="0.8";
+fillcolor="lightyellow";
+rank="sink";
+URL="/?f=github.com/Sakurame1/frp-manager/services/server";
+        
+        "github.com/Sakurame1/frp-manager/services/server.GetServerSerivce" [ penwidth="1.5" tooltip="github.com/Sakurame1/frp-manager/services/server.GetServerSerivce | defined in frps_service.go:45" fillcolor="moccasin" label="GetServerSerivce" ]
+        
+    }
+
+        subgraph "cluster_github.com/Sakurame1/frp-manager/utils" {
+        penwidth="0.8";
+fontsize="16";
+style="filled";
+fillcolor="lightyellow";
+URL="/?f=github.com/Sakurame1/frp-manager/utils";
+fontname="Tahoma bold";
+rank="sink";
+label="utils";
+tooltip="package: github.com/Sakurame1/frp-manager/utils";
+        
+        "github.com/Sakurame1/frp-manager/utils.NewBaseFRPServerUserAuthConfig" [ penwidth="1.5" tooltip="github.com/Sakurame1/frp-manager/utils.NewBaseFRPServerUserAuthConfig | defined in frp_config.go:19" fillcolor="moccasin" label="NewBaseFRPServerUserAuthConfig" ]
+        "github.com/Sakurame1/frp-manager/utils.MD5" [ label="MD5" penwidth="1.5" tooltip="github.com/Sakurame1/frp-manager/utils.MD5 | defined in hash.go:12" fillcolor="moccasin" ]
+        
+    }
+
+        subgraph "cluster_github.com/Sakurame1/frp-manager/watcher" {
+        style="filled";
+fillcolor="lightyellow";
+fontname="Tahoma bold";
+rank="sink";
+label="watcher";
+penwidth="0.8";
+URL="/?f=github.com/Sakurame1/frp-manager/watcher";
+tooltip="package: github.com/Sakurame1/frp-manager/watcher";
+fontsize="16";
+        
+        "github.com/Sakurame1/frp-manager/watcher.NewClient" [ fillcolor="moccasin" label="NewClient" penwidth="1.5" tooltip="github.com/Sakurame1/frp-manager/watcher.NewClient | defined in client.go:17" ]
+        "(*github.com/Sakurame1/frp-manager/watcher.client).Stop" [ fillcolor="moccasin" label="(*client).Stop" penwidth="1.5" tooltip="(*github.com/Sakurame1/frp-manager/watcher.client).Stop | defined in client.go:40" ]
+        
+    }
+
+    }
+
+    "github.com/Sakurame1/frp-manager/cmd.runClient" -> "github.com/Sakurame1/frp-manager/watcher.NewClient" [ color="saddlebrown" tooltip="at client.go:31: calling [github.com/Sakurame1/frp-manager/watcher.NewClient]" ]
+    "github.com/Sakurame1/frp-manager/cmd.initClientOnce" -> "github.com/Sakurame1/frp-manager/biz/client.PullConfig" [ color="saddlebrown" tooltip="at client.go:43: calling [github.com/Sakurame1/frp-manager/biz/client.PullConfig]" ]
+    "github.com/Sakurame1/frp-manager/cmd.runServer" -> "(*github.com/Sakurame1/frp-manager/watcher.client).Stop" [ color="saddlebrown" tooltip="at server.go:38: calling [(*github.com/Sakurame1/frp-manager/watcher.client).Stop]" style="dashed" arrowhead="normalnoneodiamond" ]
+    "github.com/Sakurame1/frp-manager/cmd.runMaster" -> "github.com/Sakurame1/frp-manager/conf.FRPsAuthOption" [ color="saddlebrown" tooltip="at master.go:34: calling [github.com/Sakurame1/frp-manager/conf.FRPsAuthOption]" ]
+    "github.com/Sakurame1/frp-manager/cmd.runClient" -> "github.com/Sakurame1/frp-manager/cmd.initClientOnce" [ tooltip="at client.go:34: calling [github.com/Sakurame1/frp-manager/cmd.initClientOnce]" ]
+    "github.com/Sakurame1/frp-manager/cmd.runServer" -> "github.com/Sakurame1/frp-manager/watcher.NewClient" [ color="saddlebrown" tooltip="at server.go:37: calling [github.com/Sakurame1/frp-manager/watcher.NewClient]" ]
+    "github.com/Sakurame1/frp-manager/cmd.initCommand$2" -> "github.com/Sakurame1/frp-manager/cmd.runServer" [ tooltip="at cmd.go:38: calling [github.com/Sakurame1/frp-manager/cmd.runServer]" ]
+    "github.com/Sakurame1/frp-manager/cmd.runMaster" -> "github.com/Sakurame1/frp-manager/biz/master/auth.InitAuth" [ color="saddlebrown" tooltip="at master.go:28: calling [github.com/Sakurame1/frp-manager/biz/master/auth.InitAuth]" ]
+    "github.com/Sakurame1/frp-manager/cmd.main" -> "github.com/Sakurame1/frp-manager/utils.MD5" [ color="saddlebrown" tooltip="at main.go:16: calling [github.com/Sakurame1/frp-manager/utils.MD5]" ]
+    "github.com/Sakurame1/frp-manager/cmd.runMaster" -> "github.com/Sakurame1/frp-manager/services/server.GetServerSerivce" [ color="saddlebrown" tooltip="at master.go:37: calling [github.com/Sakurame1/frp-manager/services/server.GetServerSerivce]" ]
+    "github.com/Sakurame1/frp-manager/cmd.main" -> "github.com/Sakurame1/frp-manager/conf.InitConfig" [ color="saddlebrown" tooltip="at main.go:13: calling [github.com/Sakurame1/frp-manager/conf.InitConfig]" ]
+    "github.com/Sakurame1/frp-manager/cmd.runClient" -> "github.com/Sakurame1/frp-manager/services/rpcclient.GetClientRPCSerivce" [ color="saddlebrown" tooltip="at client.go:28: calling [github.com/Sakurame1/frp-manager/services/rpcclient.GetClientRPCSerivce]" ]
+    "github.com/Sakurame1/frp-manager/cmd.runClient" -> "(*github.com/Sakurame1/frp-manager/services/rpcclient.ClientRPC).Stop" [ style="dashed" arrowhead="normalnoneodiamond" color="saddlebrown" tooltip="at client.go:29: calling [(*github.com/Sakurame1/frp-manager/services/rpcclient.ClientRPC).Stop]" ]
+    "github.com/Sakurame1/frp-manager/cmd.runServer" -> "(*github.com/Sakurame1/frp-manager/services/rpcclient.ClientRPC).Stop" [ style="dashed" arrowhead="normalnoneodiamond" color="saddlebrown" tooltip="at server.go:35: calling [(*github.com/Sakurame1/frp-manager/services/rpcclient.ClientRPC).Stop]" ]
+    "github.com/Sakurame1/frp-manager/cmd.runMaster" -> "github.com/Sakurame1/frp-manager/biz/master.NewRouter" [ color="saddlebrown" tooltip="at master.go:23: calling [github.com/Sakurame1/frp-manager/biz/master.NewRouter]" ]
+    "github.com/Sakurame1/frp-manager/cmd.initDatabase" -> "github.com/Sakurame1/frp-manager/conf.Get" [ tooltip="at master.go:48: calling [github.com/Sakurame1/frp-manager/conf.Get]\nat master.go:49: calling [github.com/Sakurame1/frp-manager/conf.Get]\nat master.go:51: calling [github.com/Sakurame1/frp-manager/conf.Get]\nat master.go:53: calling [github.com/Sakurame1/frp-manager/conf.Get]\nat master.go:60: calling [github.com/Sakurame1/frp-manager/conf.Get]\nat master.go:57: calling [github.com/Sakurame1/frp-manager/conf.Get]" color="saddlebrown" ]
+    "github.com/Sakurame1/frp-manager/cmd.initDatabase" -> "github.com/Sakurame1/frp-manager/models.GetDBManager" [ color="saddlebrown" tooltip="at master.go:63: calling [github.com/Sakurame1/frp-manager/models.GetDBManager]\nat master.go:56: calling [github.com/Sakurame1/frp-manager/models.GetDBManager]" ]
+    "github.com/Sakurame1/frp-manager/cmd.main" -> "github.com/Sakurame1/frp-manager/rpc.InitRPCClients" [ color="saddlebrown" tooltip="at main.go:14: calling [github.com/Sakurame1/frp-manager/rpc.InitRPCClients]" ]
+    "github.com/Sakurame1/frp-manager/cmd.main" -> "github.com/Sakurame1/frp-manager/conf.Get" [ tooltip="at main.go:16: calling [github.com/Sakurame1/frp-manager/conf.Get]" color="saddlebrown" ]
+    "github.com/Sakurame1/frp-manager/cmd.runMaster" -> "github.com/Sakurame1/frp-manager/utils.NewBaseFRPServerUserAuthConfig" [ color="saddlebrown" tooltip="at master.go:32: calling [github.com/Sakurame1/frp-manager/utils.NewBaseFRPServerUserAuthConfig]" ]
+    "github.com/Sakurame1/frp-manager/cmd.runClient" -> "github.com/Sakurame1/frp-manager/services/rpcclient.MustInitClientRPCSerivce" [ color="saddlebrown" tooltip="at client.go:22: calling [github.com/Sakurame1/frp-manager/services/rpcclient.MustInitClientRPCSerivce]" ]
+    "github.com/Sakurame1/frp-manager/cmd.runMaster" -> "github.com/Sakurame1/frp-manager/services/master.MustInitMasterService" [ color="saddlebrown" tooltip="at master.go:21: calling [github.com/Sakurame1/frp-manager/services/master.MustInitMasterService]" ]
+    "github.com/Sakurame1/frp-manager/cmd.runMaster" -> "github.com/Sakurame1/frp-manager/services/api.MustInitApiService" [ color="saddlebrown" tooltip="at master.go:24: calling [github.com/Sakurame1/frp-manager/services/api.MustInitApiService]" ]
+    "github.com/Sakurame1/frp-manager/cmd.initDatabase" -> "github.com/Sakurame1/frp-manager/models.MustInitDBManager" [ tooltip="at master.go:49: calling [github.com/Sakurame1/frp-manager/models.MustInitDBManager]" color="saddlebrown" ]
+    "github.com/Sakurame1/frp-manager/cmd.runMaster" -> "github.com/Sakurame1/frp-manager/cmd.initDatabase" [ tooltip="at master.go:26: calling [github.com/Sakurame1/frp-manager/cmd.initDatabase]" ]
+    "github.com/Sakurame1/frp-manager/cmd.runMaster" -> "github.com/Sakurame1/frp-manager/conf.Get" [ color="saddlebrown" tooltip="at master.go:33: calling [github.com/Sakurame1/frp-manager/conf.Get]" ]
+    "github.com/Sakurame1/frp-manager/cmd.initCommand$3" -> "github.com/Sakurame1/frp-manager/cmd.runMaster" [ tooltip="at cmd.go:45: calling [github.com/Sakurame1/frp-manager/cmd.runMaster]" ]
+    "github.com/Sakurame1/frp-manager/cmd.main" -> "github.com/Sakurame1/frp-manager/cmd.initCommand" [ tooltip="at main.go:12: calling [github.com/Sakurame1/frp-manager/cmd.initCommand]" ]
+    "github.com/Sakurame1/frp-manager/cmd.runServer" -> "github.com/Sakurame1/frp-manager/conf.ServerAPIListenAddr" [ color="saddlebrown" tooltip="at server.go:22: calling [github.com/Sakurame1/frp-manager/conf.ServerAPIListenAddr]" ]
+    "github.com/Sakurame1/frp-manager/cmd.runServer" -> "github.com/Sakurame1/frp-manager/services/api.GetAPIService" [ color="saddlebrown" tooltip="at server.go:24: calling [github.com/Sakurame1/frp-manager/services/api.GetAPIService]" ]
+    "github.com/Sakurame1/frp-manager/cmd.initServerOnce" -> "github.com/Sakurame1/frp-manager/biz/server.PullConfig" [ color="saddlebrown" tooltip="at server.go:50: calling [github.com/Sakurame1/frp-manager/biz/server.PullConfig]" ]
+    "github.com/Sakurame1/frp-manager/cmd.runServer" -> "(*github.com/Sakurame1/frp-manager/services/api.server).Stop" [ color="saddlebrown" tooltip="at server.go:25: calling [(*github.com/Sakurame1/frp-manager/services/api.server).Stop]" style="dashed" arrowhead="normalnoneodiamond" ]
+    "github.com/Sakurame1/frp-manager/cmd.initDatabase" -> "(*github.com/Sakurame1/frp-manager/models.dbManagerImpl).SetDB" [ style="dashed" color="saddlebrown" tooltip="at master.go:56: calling [(*github.com/Sakurame1/frp-manager/models.dbManagerImpl).SetDB]" ]
+    "github.com/Sakurame1/frp-manager/cmd.runMaster" -> "github.com/Sakurame1/frp-manager/cache.InitCache" [ color="saddlebrown" tooltip="at master.go:27: calling [github.com/Sakurame1/frp-manager/cache.InitCache]" ]
+    "github.com/Sakurame1/frp-manager/cmd.runClient" -> "(*github.com/Sakurame1/frp-manager/watcher.client).Stop" [ tooltip="at client.go:32: calling [(*github.com/Sakurame1/frp-manager/watcher.client).Stop]" style="dashed" arrowhead="normalnoneodiamond" color="saddlebrown" ]
+    "github.com/Sakurame1/frp-manager/cmd.runServer" -> "github.com/Sakurame1/frp-manager/biz/server.NewRouter" [ color="saddlebrown" tooltip="at server.go:21: calling [github.com/Sakurame1/frp-manager/biz/server.NewRouter]" ]
+    "github.com/Sakurame1/frp-manager/cmd.runServer" -> "github.com/Sakurame1/frp-manager/services/api.MustInitApiService" [ color="saddlebrown" tooltip="at server.go:22: calling [github.com/Sakurame1/frp-manager/services/api.MustInitApiService]" ]
+    "github.com/Sakurame1/frp-manager/cmd.initDatabase" -> "(*github.com/Sakurame1/frp-manager/models.dbManagerImpl).Init" [ tooltip="at master.go:63: calling [(*github.com/Sakurame1/frp-manager/models.dbManagerImpl).Init]" style="dashed" color="saddlebrown" ]
+    "github.com/Sakurame1/frp-manager/cmd.initCommand$1" -> "github.com/Sakurame1/frp-manager/cmd.runClient" [ tooltip="at cmd.go:31: calling [github.com/Sakurame1/frp-manager/cmd.runClient]" ]
+    "github.com/Sakurame1/frp-manager/cmd.runServer" -> "github.com/Sakurame1/frp-manager/cmd.initServerOnce" [ tooltip="at server.go:40: calling [github.com/Sakurame1/frp-manager/cmd.initServerOnce]" ]
+    "github.com/Sakurame1/frp-manager/cmd.runMaster" -> "github.com/Sakurame1/frp-manager/conf.MasterAPIListenAddr" [ color="saddlebrown" tooltip="at master.go:24: calling [github.com/Sakurame1/frp-manager/conf.MasterAPIListenAddr]" ]
+    "github.com/Sakurame1/frp-manager/cmd.main" -> "github.com/Sakurame1/frp-manager/cmd.initLogger" [ tooltip="at main.go:11: calling [github.com/Sakurame1/frp-manager/cmd.initLogger]" ]
+    "github.com/Sakurame1/frp-manager/cmd.runServer" -> "github.com/Sakurame1/frp-manager/services/rpcclient.MustInitClientRPCSerivce" [ color="saddlebrown" tooltip="at server.go:27: calling [github.com/Sakurame1/frp-manager/services/rpcclient.MustInitClientRPCSerivce]" ]
+    "github.com/Sakurame1/frp-manager/cmd.runServer" -> "github.com/Sakurame1/frp-manager/services/rpcclient.GetClientRPCSerivce" [ color="saddlebrown" tooltip="at server.go:34: calling [github.com/Sakurame1/frp-manager/services/rpcclient.GetClientRPCSerivce]" ]
+    "github.com/Sakurame1/frp-manager/cmd.runMaster" -> "github.com/Sakurame1/frp-manager/services/master.GetMasterSerivce" [ color="saddlebrown" tooltip="at master.go:31: calling [github.com/Sakurame1/frp-manager/services/master.GetMasterSerivce]" ]
+    "github.com/Sakurame1/frp-manager/cmd.runMaster" -> "github.com/Sakurame1/frp-manager/services/api.GetAPIService" [ color="saddlebrown" tooltip="at master.go:38: calling [github.com/Sakurame1/frp-manager/services/api.GetAPIService]" ]
+}
