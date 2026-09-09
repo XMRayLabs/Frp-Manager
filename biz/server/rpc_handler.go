@@ -34,6 +34,17 @@ func HandleServerMessage(appInstance app.Application, req *pb.ServerMessage) *pb
 	case pb.Event_EVENT_START_PTY_CONNECT:
 		return app.WrapperServerMsg(appInstance, req, StartPTYConnect)
 	case pb.Event_EVENT_PING:
+		// Old panels send an empty ping. Only opt-in health probes inspect the core.
+		var ping pb.CommonRequest
+		if proto.Unmarshal(req.GetData(), &ping) == nil && ping.GetData() == "core-health" {
+			ctrl := appInstance.GetServerController()
+			if ctrl == nil || ctrl.Get(appInstance.GetConfig().Client.ID) == nil {
+				return &pb.ClientMessage{Event: pb.Event_EVENT_ERROR, Data: []byte("frps core is not configured or did not start")}
+			}
+			if core, ok := ctrl.Get(appInstance.GetConfig().Client.ID).(interface{ Running() bool }); ok && !core.Running() {
+				return &pb.ClientMessage{Event: pb.Event_EVENT_ERROR, Data: []byte("frps core is not running")}
+			}
+		}
 		rawData, _ := proto.Marshal(conf.GetVersion().ToProto())
 		return &pb.ClientMessage{
 			Event: pb.Event_EVENT_PONG,

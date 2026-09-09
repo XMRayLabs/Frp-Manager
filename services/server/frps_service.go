@@ -3,6 +3,7 @@ package server
 import (
 	"context"
 	"sync"
+	"sync/atomic"
 
 	"github.com/Sakurame1/frp-manager/services/app"
 	"github.com/Sakurame1/frp-manager/utils/logger"
@@ -18,6 +19,7 @@ type serverImpl struct {
 	srv       *server.Service
 	Common    *v1.ServerConfig
 	firstSync sync.Once
+	running   atomic.Bool
 }
 
 func NewServerHandler(svrCfg *v1.ServerConfig) app.ServerHandler {
@@ -51,12 +53,15 @@ func NewServerHandler(svrCfg *v1.ServerConfig) app.ServerHandler {
 }
 
 func (s *serverImpl) Run() {
+	s.running.Store(true)
+	defer s.running.Store(false)
 	wg := conc.NewWaitGroup()
 	wg.Go(func() { s.srv.Run(context.Background()) })
 	wg.Wait()
 }
 
 func (s *serverImpl) Stop() {
+	s.running.Store(false)
 	c := context.Background()
 	wg := conc.NewWaitGroup()
 	wg.Go(func() {
@@ -88,3 +93,6 @@ func (s *serverImpl) IsFirstSync() bool {
 	})
 	return result
 }
+
+// Running reports whether the FRPS service loop is active.
+func (s *serverImpl) Running() bool { return s.running.Load() }

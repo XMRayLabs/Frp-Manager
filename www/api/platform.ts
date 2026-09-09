@@ -26,3 +26,18 @@ export const getClientsStatus = async (req: GetClientsStatusRequest): Promise<Ge
     clients: Object.assign({}, ...responses.map((response) => response.clients)),
   }
 }
+
+export interface NodeOverview {
+  total: number
+  online: number
+  pending: number
+  unconfigured: number
+  invalid: number
+  unavailable: number
+  upgrade: number
+}
+
+export const getNodeOverview = async (): Promise<{ clients: NodeOverview; servers: NodeOverview }> => {
+  const res = await http.get(API_PATH + '/platform/overview')
+  return res.data.body
+}

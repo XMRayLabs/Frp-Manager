@@ -143,7 +143,7 @@ func refreshProxyStatusGroup(
 			ProxyId:  lo.ToPtr(uint32(config.ID)),
 			ClientId: lo.ToPtr(config.ClientID),
 			ServerId: lo.ToPtr(config.ServerID),
-			Name:     lo.ToPtr(userName + "." + config.Name),
+			Name:     lo.ToPtr(proxyRuntimeName(userName, config.Name)),
 		})
 	}
 
@@ -229,7 +229,7 @@ func refreshLegacyProxyStatusGroup(
 				&pb.GetProxyConfigRequest{
 					ClientId: lo.ToPtr(config.ClientID),
 					ServerId: lo.ToPtr(config.ServerID),
-					Name:     lo.ToPtr(userName + "." + config.Name),
+					Name:     lo.ToPtr(proxyRuntimeName(userName, config.Name)),
 				},
 				response,
 			)
@@ -281,4 +281,57 @@ func proxyStatusResult(proxyID uint32, status *pb.ProxyWorkingStatus) *pb.ProxyS
 		ProxyId:       lo.ToPtr(proxyID),
 		WorkingStatus: status,
 	}
+}
+
+// Overview checks run in the background with bounded concurrency. Cached results
+// remain visible during refresh, so large fleets never block the dashboard on RPC.
+var overviewProbeSlots = make(chan struct{}, 8)
+var overviewProbes sync.Map
+
+func OverviewProxyStatuses(ctx *app.Context, prefixes map[string]string, configs []*models.ProxyConfig) []*pb.ProxyStatusResult {
+	results := make([]*pb.ProxyStatusResult, 0, len(configs))
+	groups := map[string][]*models.ProxyConfig{}
+	for _, cfg := range configs {
+		if entry, ok := proxyStatusCache.Load(uint32(cfg.ID)); ok {
+			if cached, ok := entry.(proxyStatusCacheEntry); ok {
+				results = append(results, proxyStatusResult(uint32(cfg.ID), cached.status))
+				if time.Now().Before(cached.expiresAt.Add(20 * time.Second)) {
+					continue
+				}
+			}
+		}
+		id := cfg.OriginClientID
+		if id == "" {
+			id = cfg.ClientID
+		}
+		// Include the actual configured FRP user, rather than the dashboard viewer.
+		key := id + "\x00" + prefixes[cfg.ClientID]
+		groups[key] = append(groups[key], cfg)
+	}
+	for key, group := range groups {
+		if _, busy := overviewProbes.LoadOrStore(key, true); busy {
+			continue
+		}
+		select {
+		case overviewProbeSlots <- struct{}{}:
+		default:
+			overviewProbes.Delete(key)
+			continue
+		}
+		go func(key string, group []*models.ProxyConfig) {
+			defer func() { <-overviewProbeSlots; overviewProbes.Delete(key) }()
+			parts := strings.SplitN(key, "\x00", 2)
+			probeCtx, cancel := context.WithTimeout(context.Background(), 6*time.Second)
+			defer cancel()
+			refreshProxyStatusGroup(app.NewContext(probeCtx, ctx.GetApp()), parts[1], parts[0], group)
+		}(key, group)
+	}
+	return results
+}
+
+func proxyRuntimeName(userName, name string) string {
+	if userName == "" {
+		return name
+	}
+	return userName + "." + name
 }

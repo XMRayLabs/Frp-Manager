@@ -150,7 +150,11 @@ func scheduleStatusProbe(appInstance app.Application, clientID string, connector
 		probeCtx, cancel := context.WithTimeout(context.Background(), statusProbeTimeout)
 		defer cancel()
 		startedAt := time.Now()
-		resp, err := rpc.CallClient(app.NewContext(probeCtx, appInstance), clientID, pb.Event_EVENT_PING, &pb.CommonRequest{})
+		request := &pb.CommonRequest{}
+		if connector.CliType == defs.CliTypeServer {
+			request.Data = lo.ToPtr("core-health")
+		}
+		resp, err := rpc.CallClient(app.NewContext(probeCtx, appInstance), clientID, pb.Event_EVENT_PING, request)
 		ping := int32(time.Since(startedAt).Milliseconds())
 		if err != nil || resp == nil {
 			mgr.FinishStatusProbe(clientID, connector, ping, nil, false)
