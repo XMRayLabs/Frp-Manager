@@ -1,3 +1,5 @@
+import { getResourceOwners } from '@/api/resource-owners'
+import { OwnerFilter } from '@/components/base/owner-filter'
 import { collectPages } from '@/lib/collect-pages'
 import { Client } from '@/lib/pb/common'
 import { ClientTableSchema, columns as clientColumnsDef } from './client_item'
@@ -33,6 +35,7 @@ export interface ClientListProps {
 }
 
 export const ClientList: React.FC<ClientListProps> = ({ Clients, Keyword, TriggerRefetch }) => {
+  const [ownerFilter, setOwnerFilter] = React.useState('all')
   const [sorting, setSorting] = React.useState<SortingState>([])
   const [columnFilters, setColumnFilters] = React.useState<ColumnFiltersState>([])
   const [configFilter, setConfigFilter] = React.useState<'all' | 'valid' | 'invalid'>('all')
@@ -50,7 +53,8 @@ export const ClientList: React.FC<ClientListProps> = ({ Clients, Keyword, Trigge
     pageSize: 10,
   })
 
-  const advancedFilter = configFilter !== 'all' || runtimeFilter !== 'all' || nodeFilter !== 'all'
+  const ownersQuery = useQuery({ queryKey: ['resourceOwners', 'client', TriggerRefetch, globalRefetchTrigger], queryFn: () => getResourceOwners('client'), refetchInterval: 30_000 })
+  const advancedFilter = ownerFilter !== 'all' || configFilter !== 'all' || runtimeFilter !== 'all' || nodeFilter !== 'all'
   const fetchDataOptions = {
     advancedFilter,
     pageIndex: advancedFilter ? 0 : pageIndex,
@@ -134,14 +138,15 @@ export const ClientList: React.FC<ClientListProps> = ({ Clients, Keyword, Trigge
           clientIds: client.clientIds || [],
         } as ClientTableSchema
       })
+      .filter((row) => ownerFilter === 'all' || String(ownersQuery.data?.resources[row.id]) === ownerFilter)
       .filter((row) => configFilter === 'all' || row.status === configFilter)
       .filter((row) => runtimeFilter === 'all' || row.runtimeStatus === runtimeFilter)
       .filter((row) => nodeFilter === 'all' || (nodeFilter === 'ephemeral' ? row.ephemeral : !row.ephemeral))
-  }, [allClients, statusQuery.data, configFilter, runtimeFilter, nodeFilter])
+  }, [allClients, statusQuery.data, configFilter, runtimeFilter, nodeFilter, ownerFilter, ownersQuery.data])
 
   React.useEffect(() => {
     setPagination((current) => ({ ...current, pageIndex: 0 }))
-  }, [Keyword, configFilter, runtimeFilter, nodeFilter])
+  }, [Keyword, configFilter, runtimeFilter, nodeFilter, ownerFilter])
 
   const table = useReactTable({
     data: rows,
@@ -189,6 +194,7 @@ export const ClientList: React.FC<ClientListProps> = ({ Clients, Keyword, Trigge
       columns={clientColumnsDef}
       toolbar={
         <div className="flex flex-wrap items-center gap-2">
+          <OwnerFilter value={ownerFilter} onChange={setOwnerFilter} data={ownersQuery.data} loading={ownersQuery.isPending} error={ownersQuery.error} retry={() => { void ownersQuery.refetch() }} />
           <span className="text-xs text-muted-foreground">
             共 {dataQuery.data?.total ?? 0} 个节点 · {advancedFilter ? '全局筛选' : '按页加载 · 排序作用于当前页'}
           </span>
@@ -225,6 +231,7 @@ export const ClientList: React.FC<ClientListProps> = ({ Clients, Keyword, Trigge
             variant="outline"
             size="sm"
             onClick={() => {
+              setOwnerFilter('all')
               setConfigFilter('all')
               setRuntimeFilter('all')
               setNodeFilter('all')

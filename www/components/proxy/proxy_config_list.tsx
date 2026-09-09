@@ -1,3 +1,7 @@
+import { getResourceOwners } from '@/api/resource-owners'
+import { OwnerFilter } from '@/components/base/owner-filter'
+import { matchesPortSearch } from '@/lib/port-search'
+import { collectPages } from '@/lib/collect-pages'
 import { ProxyConfig } from '@/lib/pb/common'
 import { ProxyConfigTableSchema, columns as proxyConfigColumnsDef } from './proxy_config_item'
 import { DataTable } from '../base/data_table'
@@ -22,7 +26,6 @@ import { useStore } from '@nanostores/react'
 import { Button } from '../ui/button'
 import { Input } from '../ui/input'
 
-const ALL_ROWS_PAGE_SIZE = 10000
 const STATUS_REFRESH_INTERVAL_MS = 15000
 
 export interface ProxyConfigListProps {
@@ -76,8 +79,8 @@ export const ProxyConfigList: React.FC<ProxyConfigListProps> = ({
   const [columnFilters, setColumnFilters] = React.useState<ColumnFiltersState>([])
   const [typeFilter, setTypeFilter] = React.useState<string>('all')
   const [statusFilter, setStatusFilter] = React.useState<string>('all')
-  const [minPort, setMinPort] = React.useState('')
-  const [maxPort, setMaxPort] = React.useState('')
+  const [portSearch, setPortSearch] = React.useState('')
+  const [ownerFilter, setOwnerFilter] = React.useState('all')
   const globalRefetchTrigger = useStore($proxyTableRefetchTrigger)
 
   const [{ pageIndex, pageSize }, setPagination] = React.useState<PaginationState>({
@@ -85,6 +88,7 @@ export const ProxyConfigList: React.FC<ProxyConfigListProps> = ({
     pageSize: 10,
   })
 
+  const ownersQuery = useQuery({ queryKey: ['resourceOwners', 'proxy', TriggerRefetch, globalRefetchTrigger], queryFn: () => getResourceOwners('proxy'), refetchInterval: 30_000 })
   const fetchDataOptions = {
     Keyword,
     TriggerRefetch,
@@ -103,13 +107,17 @@ export const ProxyConfigList: React.FC<ProxyConfigListProps> = ({
   const dataQuery = useQuery({
     queryKey: ['listProxyConfigsAll', fetchDataOptions],
     queryFn: async () => {
-      return await listProxyConfig({
-        page: 1,
-        pageSize: ALL_ROWS_PAGE_SIZE,
+      const result = await collectPages(async (page, pageSize) => {
+        const response = await listProxyConfig({
+        page,
+        pageSize,
         keyword: fetchDataOptions.Keyword,
         clientId: fetchDataOptions.ClientID,
         serverId: fetchDataOptions.ServerID,
+        })
+        return { total: response.total ?? 0, items: response.proxyConfigs }
       })
+      return { total: result.total, proxyConfigs: result.items }
     },
     placeholderData: keepPreviousData,
   })
@@ -141,19 +149,17 @@ export const ProxyConfigList: React.FC<ProxyConfigListProps> = ({
   )
 
   const rows = React.useMemo(() => {
-    const min = Number(minPort)
-    const max = Number(maxPort)
     return allProxyConfigs
       .map((proxyConfig) => toTableRow(proxyConfig, statusByProxy[String(proxyConfig.id ?? 0)]))
       .filter((row) => typeFilter === 'all' || row.type === typeFilter)
       .filter((row) => statusFilter === 'all' || row.status === statusFilter)
-      .filter((row) => minPort === '' || ((row.remotePort ?? row.localPort ?? 0) >= min))
-      .filter((row) => maxPort === '' || ((row.remotePort ?? row.localPort ?? Number.MAX_SAFE_INTEGER) <= max))
-  }, [allProxyConfigs, statusByProxy, typeFilter, statusFilter, minPort, maxPort])
+      .filter((row) => ownerFilter === 'all' || String(ownersQuery.data?.resources[String(row.id)]) === ownerFilter)
+      .filter((row) => matchesPortSearch(portSearch, row.localPort, row.remotePort))
+  }, [allProxyConfigs, statusByProxy, typeFilter, statusFilter, portSearch, ownerFilter, ownersQuery.data])
 
   React.useEffect(() => {
     setPagination((current) => ({ ...current, pageIndex: 0 }))
-  }, [Keyword, ClientID, ServerID, typeFilter, statusFilter, minPort, maxPort])
+  }, [Keyword, ClientID, ServerID, typeFilter, statusFilter, portSearch, ownerFilter])
 
   const table = useReactTable({
     data: rows,
@@ -180,10 +186,14 @@ export const ProxyConfigList: React.FC<ProxyConfigListProps> = ({
 
   return (
     <DataTable
+      loading={dataQuery.isPending}
+      error={dataQuery.error?.message}
+      onRetry={() => { void dataQuery.refetch() }}
       table={table}
       columns={proxyConfigColumnsDef}
       toolbar={
         <div className="flex flex-wrap items-center gap-2">
+          <OwnerFilter value={ownerFilter} onChange={setOwnerFilter} data={ownersQuery.data} loading={ownersQuery.isPending} error={ownersQuery.error} retry={() => { void ownersQuery.refetch() }} />
           <select className="h-9 rounded-md border bg-background px-3 text-sm" value={typeFilter} onChange={(e) => setTypeFilter(e.target.value)}>
             <option value="all">全部协议</option>
             {proxyTypes.map((type) => (
@@ -200,16 +210,15 @@ export const ProxyConfigList: React.FC<ProxyConfigListProps> = ({
               </option>
             ))}
           </select>
-          <Input className="h-9 w-28" inputMode="numeric" placeholder="最小端口" value={minPort} onChange={(e) => setMinPort(e.target.value)} />
-          <Input className="h-9 w-28" inputMode="numeric" placeholder="最大端口" value={maxPort} onChange={(e) => setMaxPort(e.target.value)} />
+          <Input aria-label="搜索端口" className="h-9 w-48" inputMode="numeric" placeholder="搜索端口（如 6000）" value={portSearch} onChange={(e) => setPortSearch(e.target.value)} />
           <Button
             variant="outline"
             size="sm"
             onClick={() => {
               setTypeFilter('all')
               setStatusFilter('all')
-              setMinPort('')
-              setMaxPort('')
+              setPortSearch('')
+              setOwnerFilter('all')
               setSorting([])
             }}
           >

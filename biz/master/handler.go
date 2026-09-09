@@ -67,6 +67,7 @@ func ConfigureRouter(appInstance app.Application, router *gin.Engine) {
 		platformRouter := v1.Group("/platform")
 		{
 			platformRouter.GET("/baseinfo", platform.GetPlatformInfo(appInstance))
+			platformRouter.GET("/owners", platform.ResourceOwners(appInstance))
 			platformRouter.GET("/overview", platform.GetNodeOverview(appInstance))
 			platformRouter.POST("/clientsstatus", app.Wrapper(appInstance, platform.GetClientsStatus))
 		}
