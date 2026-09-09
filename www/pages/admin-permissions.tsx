@@ -1,3 +1,4 @@
+import { BatchCreateUsersDialog } from '@/components/user/batch-create-users'
 import { Providers } from '@/components/providers'
 import { RootLayout } from '@/components/layout'
 import { Header } from '@/components/header'
@@ -308,7 +309,7 @@ function AdminPermissionPanel() {
           <div className="grid gap-4 xl:grid-cols-[minmax(0,1fr)_380px]">
             <Card>
               <CardHeader>
-                <CardTitle>用户列表</CardTitle>
+                <div className="flex flex-wrap items-center justify-between gap-2"><CardTitle>用户列表</CardTitle><BatchCreateUsersDialog onCreated={reloadUsers} /></div>
               </CardHeader>
               <CardContent className="space-y-4">
                 <div className="flex flex-wrap items-center gap-2">
@@ -503,7 +504,7 @@ function UserTable({ users, selectedUserID, onSelect }: { users: AdminUser[]; se
               <div className="text-xs text-muted-foreground">{user.email}</div>
             </TableCell>
             <TableCell>{user.role === 'admin' ? '管理员' : '标准用户'}</TableCell>
-            <TableCell>{user.status === STATUS_BANNED ? '已封禁' : '正常'}</TableCell>
+            <TableCell>{user.status === STATUS_BANNED ? '已封禁' : user.must_change_password ? '首次登录待改密' : '正常'}</TableCell>
             <TableCell className="text-right">
               <Button variant="outline" size="sm" onClick={() => onSelect(user.user_id)}>
                 管理

@@ -29,7 +29,7 @@ func TestNodeUpgradeVersions(t *testing.T) {
 		old, current string
 		want         bool
 	}{
-		{"v1.0.0", "1.0.1", true}, {"1.0.1", "v1.0.1", false},
+		{"main", "1.0.1", true}, {" MAIN ", "dev", true}, {"v1.0.0", "1.0.1", true}, {"1.0.1", "v1.0.1", false},
 		{"1.1.0", "1.0.1", false}, {"1.0.1-rc.1", "1.0.1", true},
 		{"", "1.0.1", false}, {"dev", "1.0.1", false},
 	} {

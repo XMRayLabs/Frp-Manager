@@ -15,6 +15,7 @@ function parseVersion(value: string | undefined): ParsedVersion | undefined {
 }
 
 export function NeedUpgrade(version: ClientVersion | undefined, currentVersion: string | undefined) {
+  if (version?.gitVersion?.trim().toLowerCase() === 'main') return true
   const installed = parseVersion(version?.gitVersion)
   const current = parseVersion(currentVersion)
   if (!installed || !current) return false

@@ -56,6 +56,8 @@ func ConfigureRouter(appInstance app.Application, router *gin.Engine) {
 	{
 		userRouter := v1.Group("/user")
 		{
+			userRouter.POST("/password-status", user.PasswordStatus)
+			userRouter.POST("/change-initial-password", user.ChangeInitialPassword(appInstance))
 			userRouter.POST("/get", app.Wrapper(appInstance, user.GetUserInfoHandler))
 			userRouter.POST("/update", app.Wrapper(appInstance, user.UpdateUserInfoHander))
 			userRouter.POST("/sign-token", app.Wrapper(appInstance, user.SignTokenHandler))
@@ -128,6 +130,7 @@ func ConfigureRouter(appInstance app.Application, router *gin.Engine) {
 			permissionRouter.POST("/share", permission.Share(appInstance))
 			permissionRouter.POST("/revoke", permission.Revoke(appInstance))
 			permissionRouter.POST("/resource/permissions", permission.ListResourcePermissions(appInstance))
+			permissionRouter.POST("/user/batch-create", permission.BatchCreateUsers(appInstance))
 			permissionRouter.POST("/user/list", permission.ListUsers(appInstance))
 			permissionRouter.POST("/user/update", permission.UpdateUser(appInstance))
 			permissionRouter.POST("/group/create", permission.CreateGroup(appInstance))

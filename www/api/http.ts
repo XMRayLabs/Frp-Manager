@@ -17,6 +17,11 @@ instance.interceptors.response.use(
     return response
   },
   (error) => {
+    if (axios.isAxiosError(error) && error.response?.status === 403 && error.response.data?.body?.mustChangePassword && typeof window !== 'undefined' && window.location.pathname !== '/change-password') {
+      window.location.replace('/change-password')
+    }
+    if (axios.isAxiosError(error) && error.response?.data?.msg) error.message = error.response.data.msg
+
     if (
       axios.isAxiosError(error) &&
       error.response?.status === 401 &&

@@ -30,17 +30,18 @@ type UserInfo interface {
 var _ UserInfo = (*UserEntity)(nil)
 
 type UserEntity struct {
-	UserID    int    `json:"user_id" gorm:"primaryKey"`
-	UserName  string `json:"user_name" gorm:"type:varchar(255);uniqueIndex;not null"`
-	Password  string `json:"password"`
-	Email     string `json:"email" gorm:"type:varchar(255);uniqueIndex;not null"`
-	Status    int    `json:"status"`
-	Role      string `json:"role"`
-	TenantID  int    `json:"tenant_id"`
-	Token     string `json:"token"`
-	CreatedAt time.Time
-	UpdatedAt time.Time
-	DeletedAt gorm.DeletedAt `gorm:"index"`
+	MustChangePassword bool   `json:"must_change_password" gorm:"not null;default:false"`
+	UserID             int    `json:"user_id" gorm:"primaryKey"`
+	UserName           string `json:"user_name" gorm:"type:varchar(255);uniqueIndex;not null"`
+	Password           string `json:"password"`
+	Email              string `json:"email" gorm:"type:varchar(255);uniqueIndex;not null"`
+	Status             int    `json:"status"`
+	Role               string `json:"role"`
+	TenantID           int    `json:"tenant_id"`
+	Token              string `json:"token"`
+	CreatedAt          time.Time
+	UpdatedAt          time.Time
+	DeletedAt          gorm.DeletedAt `gorm:"index"`
 
 	Groups []*UserGroup `json:"groups,omitempty" gorm:"many2many:user_group_memberships;"`
 }
@@ -83,11 +84,12 @@ func (u *UserEntity) GetToken() string {
 
 func (u *UserEntity) GetSafeUserInfo() UserEntity {
 	return UserEntity{
-		UserID:   u.UserID,
-		UserName: u.UserName,
-		Email:    u.Email,
-		Status:   u.Status,
-		Role:     u.Role,
+		MustChangePassword: u.MustChangePassword,
+		UserID:             u.UserID,
+		UserName:           u.UserName,
+		Email:              u.Email,
+		Status:             u.Status,
+		Role:               u.Role,
 	}
 }
 

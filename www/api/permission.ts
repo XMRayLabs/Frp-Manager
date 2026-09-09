@@ -52,6 +52,7 @@ export interface AdminUser {
   email: string
   status: number
   role: string
+  must_change_password?: boolean
 }
 
 export interface UserGroup {
@@ -95,5 +96,10 @@ export const grantPermission = async (req: { obj_type: string; obj_id: string; t
 
 export const revokePermission = async (req: { obj_type: string; obj_id: string; target_type: 'user' | 'group'; target_id: string; permission: 'view' | 'edit' }) => {
   const res = await http.post(API_PATH + '/permission/revoke', req)
+  return unwrap(res)
+}
+
+export const batchCreateUsers = async (req: { username: string; email: string; count: number }): Promise<AdminUser[]> => {
+  const res = await http.post(API_PATH + '/permission/user/batch-create', req, { timeout: 180_000 })
   return unwrap(res)
 }

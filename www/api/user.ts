@@ -36,3 +36,12 @@ export const rotateEnrollmentToken = async (role: 'client' | 'server', currentTo
   const res = await http.post(API_PATH + '/user/enrollment-token/rotate', { role, currentToken, confirm: true })
   return res.data.body.token
 }
+
+export const getPasswordStatus = async (): Promise<{ mustChangePassword: boolean }> => {
+  const res = await http.post(API_PATH + '/user/password-status', {})
+  return res.data.body
+}
+
+export const changeInitialPassword = async (currentPassword: string, newPassword: string) => {
+  await http.post(API_PATH + '/user/change-initial-password', { currentPassword, newPassword })
+}

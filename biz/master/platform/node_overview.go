@@ -72,6 +72,9 @@ func (n *nodeOverview) add(online, unconfigured, invalid, unavailable, upgrade b
 }
 
 func needsNodeUpgrade(installed, current string) bool {
+	if strings.EqualFold(strings.TrimSpace(installed), "main") {
+		return true
+	}
 	old, err := version.ParseSemantic(strings.TrimSpace(installed))
 	if err != nil {
 		return false

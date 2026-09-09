@@ -1,3 +1,4 @@
+import { getPasswordStatus } from '@/api/user'
 import { useQueryClient } from '@tanstack/react-query'
 import { ZodStringSchema } from '@/lib/consts'
 import { zodResolver } from '@hookform/resolvers/zod'
@@ -44,7 +45,8 @@ export function LoginComponent() {
       if (res.status?.code === RespCode.SUCCESS) {
         queryClient.clear()
         toast(t('auth.loginSuccess'))
-        await router.replace('/')
+        const passwordStatus = await getPasswordStatus()
+        await router.replace(passwordStatus.mustChangePassword ? '/change-password' : '/')
         setLoginAlert(false)
       } else {
         toast(t('auth.loginFailed'), {
