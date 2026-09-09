@@ -137,6 +137,7 @@ func getNodeOverview(ctx *app.Context) (*overviewResponse, error) {
 	}
 	servers := map[string]*models.ServerEntity{}
 	serverBad := map[string]bool{}
+	serverOnline := map[string]bool{}
 	for page := 1; ; page++ {
 		rows, err := q.ListServers(user, page, 500)
 		if err != nil {
@@ -147,8 +148,9 @@ func getNodeOverview(ctx *app.Context) (*overviewResponse, error) {
 			missing := len(strings.TrimSpace(string(row.ConfigContent))) == 0
 			invalid := !missing && serverConfigInvalid(row)
 			online, unhealthy, upgrade := nodeConnection(ctx, row.ServerID, defs.CliTypeServer)
-			serverBad[row.ServerID] = missing || invalid || !online || unhealthy
-			result.Servers.add(online, missing, invalid, !online || unhealthy, upgrade)
+			serverOnline[row.ServerID] = online
+			serverBad[row.ServerID] = missing || invalid || (online && unhealthy)
+			result.Servers.add(online, missing, invalid, online && unhealthy, upgrade)
 		}
 		if len(rows) < 500 {
 			break
@@ -203,7 +205,9 @@ func getNodeOverview(ctx *app.Context) (*overviewResponse, error) {
 			if serverBad[row.ServerID] {
 				failed[id] = true
 			}
-			if ctx.GetApp().GetClientsManager().Get(id) == nil {
+			// A disconnected endpoint is normal; do not interpret its cached
+			// proxy failures as actionable runtime errors.
+			if !serverOnline[row.ServerID] || ctx.GetApp().GetClientsManager().Get(id) == nil {
 				continue
 			}
 			owners[uint32(row.ID)] = id
@@ -267,7 +271,7 @@ func getNodeOverview(ctx *app.Context) (*overviewResponse, error) {
 	}
 	for id, row := range clients {
 		online, unhealthy, upgrade := nodeConnection(ctx, id, defs.CliTypeClient)
-		result.Clients.add(online, !configured[id], invalid[id], !row.Stopped && (!online || unhealthy || failed[id]), upgrade)
+		result.Clients.add(online, !configured[id], invalid[id], online && !row.Stopped && (unhealthy || failed[id]), upgrade)
 	}
 	return result, nil
 }

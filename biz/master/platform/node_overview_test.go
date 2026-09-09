@@ -65,6 +65,7 @@ func TestOverviewUsesVisiblePhysicalNodesAndDoesNotWaitForRPC(t *testing.T) {
 		{ClientID: "new", TenantID: 1, UserID: 1, ConnectSecret: "a"},
 		{ClientID: "partial", TenantID: 1, UserID: 1, ConnectSecret: "b", ConfigContent: []byte(`{"serverAddr":"example.com","serverPort":7000}`)},
 		{ClientID: "paused", TenantID: 1, UserID: 1, ConnectSecret: "c", Stopped: true, ConfigContent: []byte(`{"serverAddr":"example.com","serverPort":7000,"proxies":[{"name":"web","type":"tcp","localPort":80,"remotePort":8080}]}`)},
+		{ClientID: "offline", TenantID: 1, UserID: 1, ConnectSecret: "offline", ConfigContent: []byte(`{"serverAddr":"example.com","serverPort":7000,"proxies":[{"name":"web","type":"tcp","localPort":80,"remotePort":8080}]}`)},
 		{ClientID: "hidden", TenantID: 2, UserID: 2, ConnectSecret: "d"},
 		{ClientID: "child", OriginClientID: "partial", TenantID: 1, UserID: 1, ConnectSecret: "e"},
 	} {
@@ -98,10 +99,29 @@ func TestOverviewUsesVisiblePhysicalNodesAndDoesNotWaitForRPC(t *testing.T) {
 	if time.Since(start) > time.Second {
 		t.Fatal("overview blocked on runtime probes")
 	}
-	if result.Clients.Total != 3 || result.Clients.Online != 1 || result.Clients.Pending != 2 || result.Clients.Unconfigured != 2 {
+	if result.Clients.Total != 4 || result.Clients.Online != 1 || result.Clients.Pending != 2 || result.Clients.Unconfigured != 2 {
 		t.Fatalf("clients: %+v", result.Clients)
 	}
-	if result.Servers.Total != 1 || result.Servers.Online != 0 || result.Servers.Pending != 1 {
+	if result.Clients.Unavailable != 0 {
+		t.Fatalf("normal offline client counted as error: %+v", result.Clients)
+	}
+	if result.Servers.Total != 1 || result.Servers.Online != 0 || result.Servers.Pending != 0 {
 		t.Fatalf("servers: %+v", result.Servers)
+	}
+	// An online client pointing to a normally offline server is not pending.
+	instance.GetClientsManager().Set("offline", defs.CliTypeClient, &statusTestStream{ctx: context.Background(), pending: pending}, &pb.ClientVersion{GitVersion: "dev"})
+	proxy := &models.ProxyConfig{ProxyConfigEntity: &models.ProxyConfigEntity{
+		ClientID: "offline", ServerID: "s1", TenantID: 1, UserID: 1,
+		Name: "web", Type: "tcp", Content: []byte(`{"name":"web","type":"tcp","localPort":80,"remotePort":8080}`),
+	}}
+	if err := db.Create(proxy).Error; err != nil {
+		t.Fatal(err)
+	}
+	result, err = getNodeOverview(ctx)
+	if err != nil {
+		t.Fatal(err)
+	}
+	if result.Clients.Pending != 2 || result.Clients.Unavailable != 0 {
+		t.Fatalf("offline target server made client pending: %+v", result.Clients)
 	}
 }

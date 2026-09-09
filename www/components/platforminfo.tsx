@@ -9,7 +9,7 @@ function pendingDetail(node?: NodeOverview) {
   return [
     node.unconfigured && `未完成配置 ${node.unconfigured}`,
     node.invalid && `配置有误 ${node.invalid}`,
-    node.unavailable && `离线或运行异常 ${node.unavailable}`,
+    node.unavailable && `运行异常 ${node.unavailable}`,
     node.upgrade && `需要升级 ${node.upgrade}`,
   ].filter(Boolean).join(' · ')
 }
