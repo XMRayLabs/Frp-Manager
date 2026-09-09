@@ -35,6 +35,7 @@ import { $userInfo } from '@/store/user'
 import { automaticProxyName } from '@/lib/proxy-name'
 
 export type ProxyConfigMutateDialogProps = {
+  fullConfiguration?: boolean
   defaultClientID?: string
   defaultServerID?: string
   initialPurpose?: 'http' | 'socks5' | 'tcp'
@@ -223,7 +224,7 @@ export const ProxyConfigMutateForm = (props: ProxyConfigMutateDialogProps) => {
   const { i18n } = useTranslation()
   const zh = i18n.language.startsWith('zh')
   const [advanced, setAdvanced] = useState(false)
-  if (props.defaultProxyConfig || props.defaultOriginalProxyConfig || props.overwrite || props.disableChangeProxyName) {
+  if (props.fullConfiguration || props.defaultProxyConfig || props.defaultOriginalProxyConfig || props.overwrite || props.disableChangeProxyName) {
     return <AdvancedProxyConfigMutateForm {...props} />
   }
   return <div className="space-y-4">

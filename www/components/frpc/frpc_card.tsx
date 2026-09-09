@@ -14,7 +14,7 @@ import { Button } from '../ui/button'
 import { FRPCForm } from './frpc_form'
 import { FRPCEditor } from './frpc_editor'
 import { ProxyConfigList } from '../proxy/proxy_config_list'
-import { ProxyConfigMutateDialog } from '../proxy/mutate_proxy_config'
+import { ClientQuickSetup } from './client_quick_setup'
 
 export interface FRPCFormCardProps { clientID?: string; serverID?: string }
 
@@ -55,21 +55,15 @@ export function FRPCFormCard({ clientID: defaultClientID, serverID: defaultServe
         <div className="space-y-2"><p className="text-sm font-medium">{mode === 'tunnels' ? '所属服务端（可选筛选）' : '要修改连接的服务端'}</p><div className="flex gap-2"><ServerSelector serverID={serverID} setServerID={setServerID} setServer={setSelectedServer} />{mode === 'tunnels' && serverID && <Button variant="outline" onClick={() => setServerID(undefined)}>全部</Button>}</div></div>
       </div>
       <div className="flex flex-wrap gap-2" aria-label="客户端配置方式">
-        <Button variant={mode === 'tunnels' ? 'default' : 'outline'} onClick={() => setMode('tunnels')}>隧道管理</Button>
+        <Button variant={mode === 'tunnels' ? 'default' : 'outline'} onClick={() => setMode('tunnels')}>隧道配置</Button>
         <Button variant={mode === 'connection' ? 'default' : 'outline'} onClick={() => setMode('connection')}>连接与批量配置</Button>
         <Button variant={mode === 'json' ? 'default' : 'outline'} onClick={() => setMode('json')}>JSON 编辑</Button>
       </div>
       {!clientID ? <p className="text-sm text-muted-foreground">请选择客户端。</p> : mode === 'tunnels' ? <>
-        <div className="rounded-xl border bg-card p-4 space-y-3">
-          <p className="text-sm text-muted-foreground">选择用途即可添加隧道。自动填写当前客户端，名称自动生成；每条隧道单独保存。</p>
-          <div className="flex flex-wrap gap-2">
-            <ProxyConfigMutateDialog key={`http-${clientID}-${serverID}`} defaultClientID={clientID} defaultServerID={serverID} initialPurpose="http" triggerLabel="添加 HTTP 代理" />
-            <ProxyConfigMutateDialog key={`socks-${clientID}-${serverID}`} defaultClientID={clientID} defaultServerID={serverID} initialPurpose="socks5" triggerLabel="添加 SOCKS5 代理" />
-            <ProxyConfigMutateDialog key={`tcp-${clientID}-${serverID}`} defaultClientID={clientID} defaultServerID={serverID} initialPurpose="tcp" triggerLabel="添加 TCP 映射" />
-          </div>
-        </div>
+        <ClientQuickSetup key={`${clientID}-${serverID}`} clientID={clientID} serverID={serverID} />
+        <h2 className="text-sm font-medium">已添加的隧道</h2>
         <ProxyConfigList ProxyConfigs={[]} ClientID={clientID} ServerID={serverID} />
-      </> : !serverID ? <p className="rounded-lg border p-4 text-sm text-muted-foreground">先选择服务端，再读取和修改该客户端与它之间的连接配置。添加 HTTP、SOCKS5 或 TCP 隧道请使用“隧道管理”。</p> : query.isPending ? <p>正在读取配置…</p> : query.isError ? <div role="alert">{query.error.message}<Button variant="link" onClick={() => query.refetch()}>重试</Button></div> : <div className="rounded-xl border bg-card p-5 space-y-4">
+      </> : !serverID ? <p className="rounded-lg border p-4 text-sm text-muted-foreground">先选择服务端，再读取和修改该客户端与它之间的连接配置。添加 HTTP、SOCKS5 或 TCP 隧道请使用“隧道配置”。</p> : query.isPending ? <p>正在读取配置…</p> : query.isError ? <div role="alert">{query.error.message}<Button variant="link" onClick={() => query.refetch()}>重试</Button></div> : <div className="rounded-xl border bg-card p-5 space-y-4">
         <details className="rounded-lg border p-3"><summary className="cursor-pointer text-sm">自定义连接地址（通常无需修改）</summary><div className="mt-3"><SuggestiveInput value={frpsUrl} onChange={setFrpsUrl} suggestions={selectedServer?.frpsUrls || []} /></div></details>
         {parsed.error && <p role="alert" className="text-destructive">{parsed.error}</p>}
         {mode === 'connection' && !parsed.error && <FRPCForm key={`${clientID}-${serverID}`} {...formProps} />}
