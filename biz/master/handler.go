@@ -59,6 +59,8 @@ func ConfigureRouter(appInstance app.Application, router *gin.Engine) {
 			userRouter.POST("/get", app.Wrapper(appInstance, user.GetUserInfoHandler))
 			userRouter.POST("/update", app.Wrapper(appInstance, user.UpdateUserInfoHander))
 			userRouter.POST("/sign-token", app.Wrapper(appInstance, user.SignTokenHandler))
+			userRouter.POST("/enrollment-token", user.EnrollmentTokenHandler(appInstance, false))
+			userRouter.POST("/enrollment-token/rotate", user.EnrollmentTokenHandler(appInstance, true))
 		}
 		platformRouter := v1.Group("/platform")
 		{

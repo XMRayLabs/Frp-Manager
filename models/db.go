@@ -25,6 +25,9 @@ func (dbm *dbManagerImpl) Init() {
 			if err := db.AutoMigrate(&Client{}); err != nil {
 				logger.Logger(ctx).WithError(err).Fatalf("cannot init db table [%s]", (&Client{}).TableName())
 			}
+			if err := db.AutoMigrate(&EnrollmentToken{}); err != nil {
+				logger.Logger(ctx).WithError(err).Fatal("cannot init enrollment tokens")
+			}
 			if err := db.AutoMigrate(&User{}); err != nil {
 				logger.Logger(ctx).WithError(err).Fatalf("cannot init db table [%s]", (&User{}).TableName())
 			}

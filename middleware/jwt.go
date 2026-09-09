@@ -9,6 +9,7 @@ import (
 	"github.com/Sakurame1/frp-manager/common"
 	"github.com/Sakurame1/frp-manager/conf"
 	"github.com/Sakurame1/frp-manager/defs"
+	"github.com/Sakurame1/frp-manager/models"
 	"github.com/Sakurame1/frp-manager/services/app"
 	"github.com/Sakurame1/frp-manager/utils"
 	"github.com/Sakurame1/frp-manager/utils/logger"
@@ -25,6 +26,23 @@ func JWTAuth(appInstance app.Application) func(c *gin.Context) {
 		}()
 
 		var tokenStr string
+		enrollment := strings.TrimPrefix(c.Request.Header.Get(defs.AuthorizationKey), "Bearer ")
+		if strings.HasPrefix(enrollment, models.EnrollmentTokenPrefix) {
+			row, err := models.ResolveEnrollmentToken(appInstance.GetDBManager().GetDefaultDB(), enrollment)
+			if err != nil || (row.Role != "client" && row.Role != "server") {
+				common.ErrUnAuthorized(c, "invalid enrollment token")
+				c.Abort()
+				return
+			}
+			c.Set(defs.UserIDKey, row.UserID)
+			c.Set(defs.TokenKey, enrollment)
+			c.Set(defs.TokenPayloadKey_Permissions, []defs.APIPermission{
+				{Method: "POST", Path: "^/api/v1/" + row.Role + "/get$"},
+				{Method: "POST", Path: "^/api/v1/" + row.Role + "/init$"},
+			})
+			c.Next()
+			return
+		}
 
 		cookieToken, err := c.Cookie(appInstance.GetConfig().App.CookieName)
 		if err == nil {

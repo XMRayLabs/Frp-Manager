@@ -26,3 +26,13 @@ export const signToken = async (req: SignTokenRequest) => {
   const res = await http.post(API_PATH + '/user/sign-token', SignTokenRequest.toJson(req))
   return SignTokenResponse.fromJson((res.data as BaseResponse).body)
 }
+
+export const getEnrollmentToken = async (role: 'client' | 'server'): Promise<string> => {
+  const res = await http.post(API_PATH + '/user/enrollment-token', { role })
+  return res.data.body.token
+}
+
+export const rotateEnrollmentToken = async (role: 'client' | 'server', currentToken: string): Promise<string> => {
+  const res = await http.post(API_PATH + '/user/enrollment-token/rotate', { role, currentToken, confirm: true })
+  return res.data.body.token
+}
