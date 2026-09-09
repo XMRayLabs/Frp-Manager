@@ -23,7 +23,7 @@ import { IsIDValid } from '@/lib/consts'
 import { useStore } from '@nanostores/react'
 import { $userInfo } from '@/store/user'
 
-export const CreateClientDialog = ({refetchTrigger}: {refetchTrigger?: (randStr: string) => void}) => {
+export const CreateClientDialog = ({refetchTrigger, triggerLabel}: {refetchTrigger?: (randStr: string) => void; triggerLabel?: string}) => {
   const { t, i18n } = useTranslation()
   const user = useStore($userInfo)
   const zh = i18n.language.startsWith('zh')
@@ -55,7 +55,7 @@ export const CreateClientDialog = ({refetchTrigger}: {refetchTrigger?: (randStr:
     <Dialog>
       <DialogTrigger asChild>
         <Button variant="outline">
-          {t('client.create.button')}
+          {triggerLabel ?? t('client.create.button')}
         </Button>
       </DialogTrigger>
       <DialogContent>

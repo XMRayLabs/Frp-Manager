@@ -20,7 +20,7 @@ import { useTranslation } from 'react-i18next'
 import { toast } from 'sonner'
 import { IsIDValid } from '@/lib/consts'
 
-export const CreateServerDialog = ({ refetchTrigger }: { refetchTrigger?: (randStr: string) => void }) => {
+export const CreateServerDialog = ({ refetchTrigger, triggerLabel }: { refetchTrigger?: (randStr: string) => void; triggerLabel?: string }) => {
   const { t } = useTranslation()
   const [serverID, setServerID] = useState<string | undefined>()
   const [serverIP, setServerIP] = useState<string | undefined>()
@@ -51,7 +51,7 @@ export const CreateServerDialog = ({ refetchTrigger }: { refetchTrigger?: (randS
     <Dialog>
       <DialogTrigger asChild>
         <Button variant="outline">
-          {t('server.create.button')}
+          {triggerLabel ?? t('server.create.button')}
         </Button>
       </DialogTrigger>
       <DialogContent>

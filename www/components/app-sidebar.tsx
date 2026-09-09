@@ -55,9 +55,6 @@ export function AppSidebar({ ...props }: AppSidebarProps) {
         </SidebarMenuButton>
       </SidebarHeader>
       <SidebarContent className="px-2 py-4">
-        <div className="px-3 pb-3 text-[10px] tracking-widest text-sidebar-foreground/50 group-data-[collapsible=icon]:hidden">
-          工作空间
-        </div>
         <NavMain items={getNavItems(t, userInfo?.role)} />
         {props.children}
       </SidebarContent>

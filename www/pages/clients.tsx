@@ -17,12 +17,7 @@ export default function NodesPage() {
             <IdInput keyword={keyword} setKeyword={setKeyword} refetchTrigger={setTrigger} />
             <div className="flex flex-wrap items-center gap-3">
               <ClientJoinButton role="client" />
-              <details className="relative">
-              <summary className="cursor-pointer text-sm text-muted-foreground">手动创建</summary>
-              <div className="absolute right-0 z-10 rounded-lg border bg-popover p-3 shadow-lg">
-                <CreateClientDialog refetchTrigger={setTrigger} />
-              </div>
-            </details>
+              <CreateClientDialog refetchTrigger={setTrigger} triggerLabel="手动创建" />
             </div>
           </div>
           <ClientList Clients={[]} Keyword={keyword} TriggerRefetch={trigger} />
