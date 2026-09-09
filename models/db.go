@@ -37,6 +37,9 @@ func (dbm *dbManagerImpl) Init() {
 			if err := db.AutoMigrate(&Server{}); err != nil {
 				logger.Logger(ctx).WithError(err).Fatalf("cannot init db table [%s]", (&Server{}).TableName())
 			}
+			if err := MigrateNodeIdentity(db); err != nil {
+				logger.Logger(ctx).WithError(err).Fatal("cannot migrate node identity")
+			}
 			if err := db.AutoMigrate(&Cert{}); err != nil {
 				logger.Logger(ctx).WithError(err).Fatalf("cannot init db table [%s]", (&Cert{}).TableName())
 			}

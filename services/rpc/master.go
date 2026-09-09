@@ -92,6 +92,8 @@ func httpCli(cfg conf.Config) *req.Client {
 	return c
 }
 
+var ErrDeviceCredentials = errors.New("device credentials expired or invalid; enroll again explicitly")
+
 func GetClientCert(appInstance app.Application, clientID, clientSecret string, clientType pb.ClientType) ([]byte, error) {
 	apiEndpoint := conf.GetAPIURL(appInstance.GetConfig())
 	c := httpCli(appInstance.GetConfig())
@@ -110,6 +112,13 @@ func GetClientCert(appInstance app.Application, clientID, clientSecret string, c
 		return nil, fmt.Errorf("request client certificate: %w", err)
 	}
 	if !r.IsSuccessState() {
+		response := &pb.GetClientCertResponse{}
+		if proto.Unmarshal(r.Bytes(), response) == nil && response.GetStatus().GetMessage() != "" {
+			if response.GetStatus().GetMessage() == ErrDeviceCredentials.Error() {
+				return nil, ErrDeviceCredentials
+			}
+			return nil, fmt.Errorf("device authentication failed (HTTP %d): %s", r.GetStatusCode(), response.GetStatus().GetMessage())
+		}
 		return nil, fmt.Errorf("request client certificate returned HTTP %d", r.GetStatusCode())
 	}
 
@@ -119,6 +128,9 @@ func GetClientCert(appInstance app.Application, clientID, clientSecret string, c
 		return nil, fmt.Errorf("decode client certificate response: %w", err)
 	}
 	if resp.GetStatus().GetCode() != pb.RespCode_RESP_CODE_SUCCESS {
+		if resp.GetStatus().GetMessage() == ErrDeviceCredentials.Error() {
+			return nil, ErrDeviceCredentials
+		}
 		return nil, fmt.Errorf("request client certificate rejected: %s", resp.GetStatus().GetMessage())
 	}
 	if len(resp.GetCert()) == 0 {

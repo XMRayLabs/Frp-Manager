@@ -20,8 +20,6 @@ type ClientsManager interface {
 }
 
 type ClientsManagerImpl struct {
-	aliasMu         sync.RWMutex
-	aliases         map[string]string
 	connectionMu    sync.Mutex
 	senders         *utils.SyncMap[string, *defs.Connector]
 	connectTime     *utils.SyncMap[string, time.Time]
@@ -32,11 +30,6 @@ type ClientsManagerImpl struct {
 
 // Get implements ClientsManager.
 func (c *ClientsManagerImpl) Get(cliID string) *defs.Connector {
-	c.aliasMu.RLock()
-	defer c.aliasMu.RUnlock()
-	if current, ok := c.aliases[cliID]; ok {
-		cliID = current
-	}
 	cliAny, ok := c.senders.Load(cliID)
 	if !ok {
 		return nil
@@ -47,11 +40,17 @@ func (c *ClientsManagerImpl) Get(cliID string) *defs.Connector {
 // Set implements ClientsManager.
 func (c *ClientsManagerImpl) Set(cliID, clientType string, sender pb.Master_ServerSendServer, version *pb.ClientVersion) *defs.Connector {
 	wireID := cliID
+	if stream, ok := sender.(*IdentityStream); ok {
+		wireID = stream.ID
+	}
 	c.connectionMu.Lock()
 	defer c.connectionMu.Unlock()
-	cliID = c.canonical(cliID)
 
+	if old := c.Get(cliID); old != nil {
+		old.Close()
+	}
 	connector := &defs.Connector{
+		Done:    make(chan struct{}),
 		CliID:   wireID,
 		Conn:    sender,
 		CliType: clientType,
@@ -71,11 +70,13 @@ func (c *ClientsManagerImpl) Set(cliID, clientType string, sender pb.Master_Serv
 func (c *ClientsManagerImpl) Remove(cliID string) {
 	c.connectionMu.Lock()
 	defer c.connectionMu.Unlock()
-	cliID = c.canonical(cliID)
 	c.remove(cliID)
 }
 
 func (c *ClientsManagerImpl) remove(cliID string) {
+	if old := c.Get(cliID); old != nil {
+		old.Close()
+	}
 	c.senders.Delete(cliID)
 	c.connectTime.Delete(cliID)
 	c.lastSeenAt.Delete(cliID)
@@ -86,12 +87,17 @@ func (c *ClientsManagerImpl) remove(cliID string) {
 func (c *ClientsManagerImpl) RemoveIfCurrent(cliID string, connector *defs.Connector) {
 	c.connectionMu.Lock()
 	defer c.connectionMu.Unlock()
-	cliID = c.canonical(cliID)
-	current := c.Get(cliID)
-	if current != connector {
+	if c.Get(cliID) == connector {
+		c.remove(cliID)
 		return
 	}
-	c.remove(cliID)
+	c.senders.Range(func(id string, current *defs.Connector) bool {
+		if current == connector {
+			c.remove(id)
+			return false
+		}
+		return true
+	})
 }
 
 func (c *ClientsManagerImpl) ClientAddr(cliID string) string {
@@ -107,7 +113,6 @@ func (c *ClientsManagerImpl) ClientAddr(cliID string) string {
 }
 
 func (c *ClientsManagerImpl) ConnectTime(cliID string) (time.Time, bool) {
-	cliID = c.canonical(cliID)
 	t, ok := c.connectTime.Load(cliID)
 	if !ok {
 		return time.Time{}, false
@@ -116,12 +121,10 @@ func (c *ClientsManagerImpl) ConnectTime(cliID string) (time.Time, bool) {
 }
 
 func (c *ClientsManagerImpl) UpdateLastSeenAt(cliID string) {
-	cliID = c.canonical(cliID)
 	c.lastSeenAt.Store(cliID, time.Now())
 }
 
 func (c *ClientsManagerImpl) GetLastSeenAt(cliID string) (time.Time, bool) {
-	cliID = c.canonical(cliID)
 	t, ok := c.lastSeenAt.Load(cliID)
 	if !ok {
 		return time.Time{}, false
@@ -130,12 +133,10 @@ func (c *ClientsManagerImpl) GetLastSeenAt(cliID string) (time.Time, bool) {
 }
 
 func (c *ClientsManagerImpl) GetRuntimeSnapshot(cliID string) (app.ClientRuntimeSnapshot, bool) {
-	cliID = c.canonical(cliID)
 	return c.runtimeSnapshot.Load(cliID)
 }
 
 func (c *ClientsManagerImpl) TryStartStatusProbe(cliID string, minInterval time.Duration) bool {
-	cliID = c.canonical(cliID)
 	if snapshot, ok := c.runtimeSnapshot.Load(cliID); ok &&
 		!snapshot.CheckedAt.IsZero() &&
 		time.Since(snapshot.CheckedAt) < minInterval {
@@ -154,7 +155,6 @@ func (c *ClientsManagerImpl) FinishStatusProbe(
 ) {
 	c.connectionMu.Lock()
 	defer c.connectionMu.Unlock()
-	cliID = c.canonical(cliID)
 	if c.Get(cliID) != connector {
 		return
 	}
@@ -183,30 +183,10 @@ func NewClientsManager() app.ClientsManager {
 	}
 }
 
-func (c *ClientsManagerImpl) canonical(id string) string {
-	c.aliasMu.RLock()
-	defer c.aliasMu.RUnlock()
-	if current, ok := c.aliases[id]; ok {
-		return current
-	}
-	return id
-}
-
 // Move the lookup keys without touching the stream or connector used by Recv.
 func (c *ClientsManagerImpl) Rename(oldID, newID string) {
 	c.connectionMu.Lock()
 	defer c.connectionMu.Unlock()
-	c.aliasMu.Lock()
-	defer c.aliasMu.Unlock()
-	if c.aliases == nil {
-		c.aliases = map[string]string{}
-	}
-	for old, current := range c.aliases {
-		if current == oldID {
-			c.aliases[old] = newID
-		}
-	}
-	c.aliases[oldID] = newID
 	if value, ok := c.senders.Load(oldID); ok {
 		c.senders.Store(newID, value)
 		c.senders.Delete(oldID)
@@ -224,4 +204,10 @@ func (c *ClientsManagerImpl) Rename(oldID, newID string) {
 		c.runtimeSnapshot.Delete(oldID)
 	}
 	c.statusProbes.Delete(oldID)
+}
+
+// IdentityStream carries the wire ID of an authenticated legacy kernel.
+type IdentityStream struct {
+	pb.Master_ServerSendServer
+	ID string
 }

@@ -19,12 +19,14 @@ type Client struct {
 }
 
 type ClientEntity struct {
+	DeviceID       string `json:"-" gorm:"index"`
+	RuntimeID      string `json:"-"`
 	ClientID       string `json:"client_id" gorm:"uniqueIndex;not null;primaryKey"`
 	ServerID       string `json:"server_id"`
 	TenantID       int    `json:"tenant_id" gorm:"not null"`
 	UserID         int    `json:"user_id" gorm:"not null"`
 	ConfigContent  []byte `json:"config_content"`
-	ConnectSecret  string `json:"connect_secret" gorm:"not null"`
+	ConnectSecret  string `json:"connect_secret" gorm:"not null;index"`
 	Stopped        bool   `json:"stopped"`
 	Comment        string `json:"comment"`
 	IsShadow       bool   `json:"is_shadow" gorm:"index"`

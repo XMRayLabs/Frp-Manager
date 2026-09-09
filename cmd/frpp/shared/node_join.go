@@ -13,18 +13,20 @@ import (
 	"github.com/Sakurame1/frp-manager/conf"
 	"github.com/Sakurame1/frp-manager/defs"
 	"github.com/Sakurame1/frp-manager/pb"
+	"github.com/Sakurame1/frp-manager/services/app"
 	"github.com/Sakurame1/frp-manager/services/rpc"
-	"github.com/Sakurame1/frp-manager/utils"
 	"github.com/google/uuid"
 	"github.com/samber/lo"
 )
 
 type nodeIdentity struct {
-	API    string       `json:"api"`
-	Role   defs.AppRole `json:"role"`
-	Name   string       `json:"name"`
-	ID     string       `json:"id,omitempty"`
-	Secret string       `json:"secret,omitempty"`
+	Attempt   string       `json:"attempt,omitempty"`
+	TokenHash string       `json:"token_hash,omitempty"`
+	API       string       `json:"api"`
+	Role      defs.AppRole `json:"role"`
+	Name      string       `json:"name"`
+	ID        string       `json:"id,omitempty"`
+	Secret    string       `json:"secret,omitempty"`
 }
 
 func writeNodeIdentity(path string, identity nodeIdentity) error {
@@ -69,6 +71,11 @@ func autoJoinNode(cfg conf.Config, args CommonArgs, role defs.AppRole) (conf.Con
 	if args.JoinToken == nil || *args.JoinToken == "" {
 		args.JoinToken = &cfg.Client.JoinToken
 	}
+	attempt := cfg.Client.EnrollmentAttempt
+	if lo.FromPtr(args.EnrollmentAttempt) != "" {
+		attempt = *args.EnrollmentAttempt
+	}
+	tokenHash := fmt.Sprintf("%x", sha256.Sum256([]byte(lo.FromPtr(args.JoinToken))))
 	api := strings.TrimRight(conf.GetAPIURL(cfg), "/")
 	parsed, err := url.Parse(api)
 	if err != nil || parsed.Hostname() == "" || (parsed.Scheme != "http" && parsed.Scheme != "https") || parsed.User != nil || parsed.RawQuery != "" || parsed.Fragment != "" {
@@ -101,8 +108,33 @@ func autoJoinNode(cfg conf.Config, args CommonArgs, role defs.AppRole) (conf.Con
 				return cfg, errors.New("node identity does not match panel or role")
 			}
 			if identity.ID != "" && identity.Secret != "" {
-				cfg.Client.ID, cfg.Client.Secret = identity.ID, identity.Secret
-				return cfg, nil
+				if attempt == "" || attempt == identity.Attempt || lo.FromPtr(args.JoinToken) == "" {
+					cfg.Client.ID, cfg.Client.Secret = identity.ID, identity.Secret
+					return cfg, nil
+				}
+				// Only an explicit new attempt may replace a revoked cached identity.
+				probe := app.NewApp()
+				probe.SetConfig(cfg)
+				kind := pb.ClientType_CLIENT_TYPE_FRPC
+				if role == defs.AppRole_Server {
+					kind = pb.ClientType_CLIENT_TYPE_FRPS
+				}
+				_, probeErr := rpc.GetClientCert(probe, identity.ID, identity.Secret, kind)
+				if probeErr != nil && !errors.Is(probeErr, rpc.ErrDeviceCredentials) {
+					return cfg, probeErr
+				}
+				if probeErr == nil && (identity.TokenHash == "" || identity.TokenHash == tokenHash) {
+					identity.Attempt, identity.TokenHash = attempt, tokenHash
+					if err := writeNodeIdentity(path, identity); err != nil {
+						return cfg, err
+					}
+					cfg.Client.ID, cfg.Client.Secret = identity.ID, identity.Secret
+					return cfg, nil
+				}
+				identity = nodeIdentity{API: api, Role: role, Name: uuid.NewString(), Attempt: attempt, TokenHash: tokenHash}
+				if err := writeNodeIdentity(path, identity); err != nil {
+					return cfg, err
+				}
 			}
 		} else if !os.IsNotExist(err) {
 			return cfg, err
@@ -112,9 +144,9 @@ func autoJoinNode(cfg conf.Config, args CommonArgs, role defs.AppRole) (conf.Con
 		return cfg, err
 	}
 	if identity.Name == "" {
-		identity.Name = lo.FromPtr(args.ClientID)
+		identity.Name = strings.TrimPrefix(lo.FromPtr(args.ClientID), ".")
 		if identity.Name == "" {
-			identity.Name = utils.MakeClientIDPermited(utils.GetHostnameWithIP()) + "-" + uuid.NewString()[:8]
+			identity.Name = uuid.NewString()
 		}
 		// Save the enrollment name before the request so retries use the same node.
 		if !ephemeral {
@@ -123,6 +155,7 @@ func autoJoinNode(cfg conf.Config, args CommonArgs, role defs.AppRole) (conf.Con
 			}
 		}
 	}
+	identity.Attempt, identity.TokenHash = attempt, tokenHash
 	args.ClientID = &identity.Name
 	var node *pb.Client
 	if role == defs.AppRole_Server {

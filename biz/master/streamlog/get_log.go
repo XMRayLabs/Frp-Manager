@@ -5,16 +5,15 @@ import (
 	"encoding/json"
 	"net/http"
 	"strings"
+	"time"
 
 	"github.com/Sakurame1/frp-manager/common"
-	"github.com/Sakurame1/frp-manager/defs"
 	"github.com/Sakurame1/frp-manager/pb"
 	"github.com/Sakurame1/frp-manager/services/app"
 	"github.com/Sakurame1/frp-manager/services/dao"
 	"github.com/Sakurame1/frp-manager/services/rpc"
 	"github.com/Sakurame1/frp-manager/utils/logger"
 	"github.com/gin-gonic/gin"
-	"github.com/sourcegraph/conc"
 )
 
 func GetLogHandler(appInstance app.Application) func(*gin.Context) {
@@ -33,10 +32,19 @@ func getLogHander(c *gin.Context, appInstance app.Application) {
 		c.JSON(http.StatusBadRequest, common.Err("id is empty"))
 		return
 	}
-	if err := dao.CanAccessClient(app.NewContext(c, appInstance), common.GetUserInfo(c), id, defs.RBACActionView); err != nil {
+	query := dao.NewQuery(app.NewContext(c, appInstance))
+	user := common.GetUserInfo(c)
+	key := ""
+	if node, err := query.GetClientByClientID(user, id); err == nil {
+		key = node.DeviceID
+	} else if server, err := query.GetServerByServerID(user, id); err == nil {
+		key = server.DeviceID
+	}
+	if key == "" {
 		c.JSON(http.StatusForbidden, common.Err("permission denied"))
 		return
 	}
+	connector := appInstance.GetClientsManager().Get(id)
 
 	if len(pkgs) != 0 {
 		if pkgs[0] == "all" {
@@ -44,25 +52,21 @@ func getLogHander(c *gin.Context, appInstance app.Application) {
 		}
 	}
 
-	appInstance.GetClientLogManager().GetClientLock(id).Lock()
-	defer appInstance.GetClientLogManager().GetClientLock(id).Unlock()
+	appInstance.GetClientLogManager().GetClientLock(key).Lock()
+	defer appInstance.GetClientLogManager().GetClientLock(key).Unlock()
 
 	ch := make(chan string, CacheBufSize)
-	if oldCh, ok := appInstance.GetClientLogManager().LoadAndDelete(id); ok {
-		close(oldCh)
-	}
-	appInstance.GetClientLogManager().Store(id, ch)
-
-	_, err := rpc.CallClient(app.NewContext(c, appInstance), id, pb.Event_EVENT_START_STREAM_LOG, &pb.StartSteamLogRequest{Pkgs: pkgs})
+	appInstance.GetClientLogManager().Store(key, ch)
+	defer appInstance.GetClientLogManager().Delete(key)
+	_, err := rpc.CallConnector(app.NewContext(c.Request.Context(), appInstance), id, pb.Event_EVENT_START_STREAM_LOG, &pb.StartSteamLogRequest{Pkgs: pkgs}, connector)
 	if err != nil {
 		c.JSON(http.StatusInternalServerError, common.Err(err.Error()))
 		return
 	}
-
 	defer func() {
-		appInstance.GetClientLogManager().Delete(id)
-		close(ch)
-		rpc.CallClient(app.NewContext(context.Background(), appInstance), id, pb.Event_EVENT_STOP_STREAM_LOG, &pb.CommonRequest{})
+		stopCtx, cancel := context.WithTimeout(context.Background(), 3*time.Second)
+		defer cancel()
+		rpc.CallConnector(app.NewContext(stopCtx, appInstance), id, pb.Event_EVENT_STOP_STREAM_LOG, &pb.CommonRequest{}, connector)
 	}()
 
 	c.Writer.Header().Set("Content-Type", "text/event-stream")
@@ -71,24 +75,18 @@ func getLogHander(c *gin.Context, appInstance app.Application) {
 	c.Writer.Header().Set("Content-Encoding", "none")
 	c.Writer.Flush()
 
-	var wg conc.WaitGroup
-
-	wg.Go(func() {
-		for l := range ch {
+	for {
+		select {
+		case l := <-ch:
 			k, _ := json.Marshal(l)
-			_, err := c.Writer.WriteString(string(k) + "\r\n")
-			if err != nil {
-				logger.Logger(c).Errorf("write log error: %v", err)
-				break
+			if _, err := c.Writer.WriteString(string(k) + "\r\n"); err != nil {
+				return
 			}
 			c.Writer.Flush()
+		case <-c.Request.Context().Done():
+			return
+		case <-connector.Done:
+			return
 		}
-	})
-
-	select {
-	case <-c.Request.Context().Done():
-		return
-	case <-c.Writer.CloseNotify():
-		return
 	}
 }

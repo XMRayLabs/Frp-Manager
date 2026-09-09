@@ -103,19 +103,31 @@ func TestRenameRetainsStreamAndReconnectCleanup(t *testing.T) {
 	old := manager.Set("a", defs.CliTypeClient, &fakeServerSendStream{ctx: context.Background()}, &pb.ClientVersion{GitVersion: "1.0.3"})
 	manager.Rename("a", "b")
 	manager.Rename("b", "c")
-	if manager.Get("c") != old || manager.Get("a") != old {
-		t.Fatal("rename replaced stream")
+	if manager.Get("c") != old || manager.Get("a") != nil || manager.Get("b") != nil {
+		t.Fatal("rename must retain stream and release old names")
 	}
 	if snapshot, ok := manager.GetRuntimeSnapshot("c"); !ok || snapshot.Version.GetGitVersion() != "1.0.3" {
 		t.Fatal("lost snapshot")
 	}
-	replacement := manager.Set("a", defs.CliTypeClient, &fakeServerSendStream{ctx: context.Background()}, nil)
+	reused := manager.Set("a", defs.CliTypeClient, &fakeServerSendStream{ctx: context.Background()}, nil)
 	manager.RemoveIfCurrent("a", old)
-	if manager.Get("c") != replacement {
-		t.Fatal("old stream cleanup removed new connection")
+	if manager.Get("c") != nil || manager.Get("a") != reused {
+		t.Fatal("old cleanup affected reused name")
 	}
-	manager.RemoveIfCurrent("c", replacement)
-	if manager.Get("a") != nil {
-		t.Fatal("stale alias connection")
+	select {
+	case <-old.Done:
+	default:
+		t.Fatal("old connector not closed")
+	}
+	replacement := manager.Set("a", defs.CliTypeClient, &fakeServerSendStream{ctx: context.Background()}, nil)
+	manager.RemoveIfCurrent("a", reused)
+	if manager.Get("a") != replacement {
+		t.Fatal("old cleanup removed replacement")
+	}
+	manager.Remove("a")
+	select {
+	case <-replacement.Done:
+	default:
+		t.Fatal("deleted connection not closed")
 	}
 }

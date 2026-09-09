@@ -1,3 +1,4 @@
+const { randomUUID } = require('node:crypto')
 const loopbackHosts = new Set(['localhost', '127.0.0.1', '::1', '[::1]'])
 
 function shellQuote(value) {
@@ -288,6 +289,7 @@ function buildManagedServiceConfig(profile, globalSecret) {
     `CLIENT_ID=${dotenvValue(profile.clientId)}`,
     `CLIENT_SECRET=${dotenvValue(profile.secret)}`,
     `CLIENT_JOIN_TOKEN=${dotenvValue(profile.joinToken || '')}`,
+    `CLIENT_ENROLLMENT_ATTEMPT=${dotenvValue(profile.joinToken ? randomUUID() : '')}`,
     `CLIENT_API_URL=${dotenvValue(profile.apiUrl)}`,
     `CLIENT_RPC_URL=${dotenvValue(profile.rpcUrl)}`,
     '',

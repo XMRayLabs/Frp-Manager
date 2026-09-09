@@ -8,6 +8,7 @@ import (
 	"github.com/Sakurame1/frp-manager/utils"
 	"github.com/google/uuid"
 	"github.com/samber/lo"
+	"gorm.io/gorm"
 )
 
 type ServerQuery interface {
@@ -69,6 +70,11 @@ func (q *serverQuery) GetDefaultServer() (*models.ServerEntity, error) {
 func (m *serverMutation) UpdateDefaultServer(c *models.Server) error {
 	db := m.ctx.GetApp().GetDBManager().GetDefaultDB()
 	c.ServerID = defs.DefaultServerID
+	var previous models.Server
+	if err := db.Where("server_id = ?", defs.DefaultServerID).First(&previous).Error; err != nil {
+		return err
+	}
+	c.DeviceID, c.RuntimeID = previous.DeviceID, previous.RuntimeID
 	err := db.Where(&models.Server{
 		ServerEntity: &models.ServerEntity{
 			ServerID: defs.DefaultServerID,
@@ -79,29 +85,22 @@ func (m *serverMutation) UpdateDefaultServer(c *models.Server) error {
 	return nil
 }
 
-func (q *serverQuery) ValidateServerSecret(serverID string, secret string) (*models.ServerEntity, error) {
-	if serverID == "" || secret == "" {
-		return nil, fmt.Errorf("invalid request")
+func (q *serverQuery) ValidateServerSecret(serverID, secret string) (*models.ServerEntity, error) {
+	if secret == "" {
+		return nil, fmt.Errorf("device credentials expired or invalid; enroll again explicitly")
 	}
 	db := q.ctx.GetApp().GetDBManager().GetDefaultDB()
-	resolvedID, resolveErr := models.ResolveNodeID(db, "server", serverID)
-	if resolveErr != nil {
-		return nil, resolveErr
-	}
-	serverID = resolvedID
-	c := &models.Server{}
-	err := db.
-		Where(&models.Server{ServerEntity: &models.ServerEntity{
-			ServerID: serverID,
-		}}).
-		First(c).Error
-	if err != nil {
+	var rows []*models.Server
+	query := db.Where("connect_secret = ?", secret)
+
+	if err := query.Limit(2).Find(&rows).Error; err != nil {
 		return nil, err
 	}
-	if !utils.SecureStringEqual(c.ConnectSecret, secret) {
-		return nil, fmt.Errorf("invalid secret")
+	if len(rows) != 1 || !utils.SecureStringEqual(rows[0].ConnectSecret, secret) {
+		return nil, fmt.Errorf("device credentials expired or invalid; enroll again explicitly")
 	}
-	return c.ServerEntity, nil
+
+	return rows[0].ServerEntity, nil
 }
 
 func (q *serverQuery) AdminGetServerByServerID(serverID string) (*models.ServerEntity, error) {
@@ -109,11 +108,6 @@ func (q *serverQuery) AdminGetServerByServerID(serverID string) (*models.ServerE
 		return nil, fmt.Errorf("invalid server id")
 	}
 	db := q.ctx.GetApp().GetDBManager().GetDefaultDB()
-	resolvedID, resolveErr := models.ResolveNodeID(db, "server", serverID)
-	if resolveErr != nil {
-		return nil, resolveErr
-	}
-	serverID = resolvedID
 	c := &models.Server{}
 	err := db.
 		Where(&models.Server{ServerEntity: &models.ServerEntity{
@@ -173,6 +167,8 @@ func (m *serverMutation) CreateServer(userInfo models.UserInfo, server *models.S
 }
 
 func (m *serverMutation) DeleteServer(userInfo models.UserInfo, serverID string) error {
+	models.NodeIdentityMu.Lock()
+	defer models.NodeIdentityMu.Unlock()
 	if serverID == "" {
 		return fmt.Errorf("invalid server id")
 	}
@@ -187,10 +183,23 @@ func (m *serverMutation) DeleteServer(userInfo models.UserInfo, serverID string)
 	}, defs.RBACActionEdit); err != nil {
 		return err
 	}
-	if err := db.Unscoped().Delete(&models.Server{
-		ServerEntity: &models.ServerEntity{ServerID: serverID},
-	}).Error; err != nil {
+	if err := db.Transaction(func(tx *gorm.DB) error {
+		if err := tx.Unscoped().Where("server_id = ?", serverID).Delete(&models.ProxyConfig{}).Error; err != nil {
+			return err
+		}
+		if err := tx.Unscoped().Where("server_id = ? AND origin_client_id IS NOT NULL AND origin_client_id <> ?", serverID, "").Delete(&models.Client{}).Error; err != nil {
+			return err
+		}
+		if err := tx.Model(&models.Client{}).Where("server_id = ?", serverID).Updates(map[string]interface{}{"server_id": "", "config_content": nil}).Error; err != nil {
+			return err
+		}
+		return tx.Unscoped().Where("server_id = ?", serverID).Delete(&models.Server{}).Error
+	}); err != nil {
 		return err
+	}
+
+	if manager := m.ctx.GetApp().GetClientsManager(); manager != nil {
+		manager.Remove(serverID)
 	}
 	revokeResourcePermissions(m.ctx, defs.RBACObjServer, serverID, userInfo.GetTenantID())
 	return nil
@@ -211,6 +220,8 @@ func (m *serverMutation) UpdateServer(userInfo models.UserInfo, server *models.S
 	}, defs.RBACActionEdit); err != nil {
 		return err
 	}
+	server.DeviceID = old.DeviceID
+	server.RuntimeID = old.RuntimeID
 	server.UserID = old.UserID
 	server.TenantID = old.TenantID
 	return db.Save(&models.Server{ServerEntity: server}).Error

@@ -1,60 +1,99 @@
 package models
 
 import (
-	"errors"
-	"fmt"
+	"github.com/google/uuid"
 	"gorm.io/gorm"
+	"sync"
 )
 
-// Historical IDs remain reserved, including after node deletion. They are accepted
-// only with the current node secret, so existing installations can reconnect.
+// Serialize identity changes with authenticated stream registration.
+var NodeIdentityMu sync.Mutex
+
+// Legacy migration input only. Old names are no longer resolved or reserved.
 type NodeAlias struct {
 	RuntimeID string
 	OldID     string `gorm:"primaryKey;size:255"`
-	NewID     string `gorm:"index;size:255"`
-	Kind      string `gorm:"size:16"`
+	NewID     string
+	Kind      string
 }
 
-func ResolveNodeID(db *gorm.DB, kind, id string) (string, error) {
-	if !db.Migrator().HasTable(&NodeAlias{}) {
-		return id, nil
-	}
-	var alias NodeAlias
-	err := db.Where("old_id = ? AND kind = ?", id, kind).Limit(1).Find(&alias).Error
-	if errors.Is(err, gorm.ErrRecordNotFound) || (err == nil && alias.NewID == "") {
-		return id, nil
-	}
-	if err != nil {
-		return "", err
-	}
-	return alias.NewID, nil
-}
-
-func CheckReservedNodeID(db *gorm.DB, id string) error {
-	if !db.Migrator().HasTable(&NodeAlias{}) {
+func (c *Client) BeforeCreate(tx *gorm.DB) error {
+	if c.ClientEntity == nil {
 		return nil
 	}
-	var count int64
-	if err := db.Model(&NodeAlias{}).Where("old_id = ?", id).Count(&count).Error; err != nil {
-		return err
+	if c.DeviceID == "" {
+		c.DeviceID = uuid.NewString()
 	}
-	if count > 0 {
-		return fmt.Errorf("该 ID 已被历史节点保留，请使用其他 ID")
+	if c.RuntimeID == "" {
+		c.RuntimeID = c.ClientID
+	}
+	return nil
+}
+func (s *Server) BeforeCreate(tx *gorm.DB) error {
+	if s.ServerEntity == nil {
+		return nil
+	}
+	if s.DeviceID == "" {
+		s.DeviceID = uuid.NewString()
+	}
+	if s.RuntimeID == "" {
+		s.RuntimeID = s.DeviceID
 	}
 	return nil
 }
 
-func (c *Client) BeforeCreate(tx *gorm.DB) error { return CheckReservedNodeID(tx, c.ClientID) }
-func (s *Server) BeforeCreate(tx *gorm.DB) error { return CheckReservedNodeID(tx, s.ServerID) }
-
-// Preserve the server key used by already-running FRP instances on old kernels.
+// Legacy kernels use these internal FRP keys; they do not reserve display names.
 func RuntimeNodeID(db *gorm.DB, kind, id string) string {
-	if !db.Migrator().HasTable(&NodeAlias{}) {
-		return id
+	var value string
+	table, column := "clients", "client_id"
+	if kind == "server" {
+		table, column = "servers", "server_id"
 	}
-	var alias NodeAlias
-	if db.Where("new_id = ? AND kind = ?", id, kind).Limit(1).Find(&alias).Error == nil && alias.RuntimeID != "" {
-		return alias.RuntimeID
+	if db.Table(table).Select("runtime_id").Where(column+" = ? AND deleted_at IS NULL", id).Scan(&value).Error == nil && value != "" {
+		return value
 	}
 	return id
+}
+
+func MigrateNodeIdentity(db *gorm.DB) error {
+	return db.Transaction(func(tx *gorm.DB) error {
+		for _, target := range []struct{ table, column, kind string }{{"clients", "client_id", "client"}, {"servers", "server_id", "server"}} {
+			var rows []struct {
+				ID        string
+				DeviceID  string
+				RuntimeID string
+			}
+			if err := tx.Table(target.table).Select(target.column + " AS id, device_id, runtime_id").Scan(&rows).Error; err != nil {
+				return err
+			}
+			for _, row := range rows {
+				updates := map[string]interface{}{}
+				if row.DeviceID == "" {
+					updates["device_id"] = uuid.NewString()
+				}
+				if row.RuntimeID == "" {
+					runtimeID := row.ID
+					if tx.Migrator().HasTable(&NodeAlias{}) {
+						var alias NodeAlias
+						if err := tx.Where("new_id = ? AND kind = ?", row.ID, target.kind).Limit(1).Find(&alias).Error; err != nil {
+							return err
+						}
+						if alias.RuntimeID != "" {
+							runtimeID = alias.RuntimeID
+						}
+					}
+					updates["runtime_id"] = runtimeID
+				}
+				if len(updates) > 0 {
+					if err := tx.Table(target.table).Where(target.column+" = ?", row.ID).Updates(updates).Error; err != nil {
+						return err
+					}
+				}
+			}
+		}
+		if tx.Migrator().HasTable(&NodeAlias{}) {
+			return tx.Where("1 = 1").Delete(&NodeAlias{}).Error
+		}
+		return nil
+	})
 }

@@ -43,28 +43,30 @@ func newClientQuery(base *queryImpl) ClientQuery          { return &clientQuery{
 func newClientMutation(base *mutationImpl) ClientMutation { return &clientMutation{base} }
 
 func (q *clientQuery) ValidateClientSecret(clientID, clientSecret string) (*models.ClientEntity, error) {
-	if clientID == "" || clientSecret == "" {
-		return nil, fmt.Errorf("invalid client id or client secret")
+	if clientSecret == "" {
+		return nil, fmt.Errorf("device credentials expired or invalid; enroll again explicitly")
 	}
 	db := q.ctx.GetApp().GetDBManager().GetDefaultDB()
-	resolvedID, resolveErr := models.ResolveNodeID(db, "client", clientID)
-	if resolveErr != nil {
-		return nil, resolveErr
-	}
-	clientID = resolvedID
-	c := &models.Client{}
-	err := db.
-		Where(&models.Client{ClientEntity: &models.ClientEntity{
-			ClientID: clientID,
-		}}).
-		First(c).Error
-	if err != nil {
+	var rows []*models.Client
+	query := db.Where("connect_secret = ?", clientSecret)
+	query = query.Where("origin_client_id IS NULL OR origin_client_id = ?", "")
+	if err := query.Limit(2).Find(&rows).Error; err != nil {
 		return nil, err
 	}
-	if !utils.SecureStringEqual(c.ConnectSecret, clientSecret) {
-		return nil, fmt.Errorf("invalid client secret")
+	if len(rows) != 1 || !utils.SecureStringEqual(rows[0].ConnectSecret, clientSecret) {
+		return nil, fmt.Errorf("device credentials expired or invalid; enroll again explicitly")
 	}
-	return c.ClientEntity, nil
+	// Child config requests may select only children of this authenticated device.
+	if clientID != rows[0].ClientID {
+		var child models.Client
+		if err := db.Where("client_id = ? AND origin_client_id = ? AND tenant_id = ? AND user_id = ?", clientID, rows[0].ClientID, rows[0].TenantID, rows[0].UserID).Limit(1).Find(&child).Error; err != nil {
+			return nil, err
+		}
+		if child.ClientEntity != nil && child.ClientID != "" {
+			return child.ClientEntity, nil
+		}
+	}
+	return rows[0].ClientEntity, nil
 }
 
 func (q *clientQuery) AdminGetClientByClientID(clientID string) (*models.Client, error) {
@@ -72,11 +74,6 @@ func (q *clientQuery) AdminGetClientByClientID(clientID string) (*models.Client,
 		return nil, fmt.Errorf("invalid client id")
 	}
 	db := q.ctx.GetApp().GetDBManager().GetDefaultDB()
-	resolvedID, resolveErr := models.ResolveNodeID(db, "client", clientID)
-	if resolveErr != nil {
-		return nil, resolveErr
-	}
-	clientID = resolvedID
 	c := &models.Client{}
 	err := db.
 		Where(&models.Client{ClientEntity: &models.ClientEntity{
@@ -208,6 +205,8 @@ func (m *clientMutation) CreateClient(userInfo models.UserInfo, client *models.C
 }
 
 func (m *clientMutation) DeleteClient(userInfo models.UserInfo, clientID string) error {
+	models.NodeIdentityMu.Lock()
+	defer models.NodeIdentityMu.Unlock()
 	if clientID == "" {
 		return fmt.Errorf("invalid client id")
 	}
@@ -222,16 +221,17 @@ func (m *clientMutation) DeleteClient(userInfo models.UserInfo, clientID string)
 	}, defs.RBACActionEdit); err != nil {
 		return err
 	}
-	if err := db.Unscoped().Where(&models.Client{
-		ClientEntity: &models.ClientEntity{
-			ClientID: clientID,
-		},
-	}).Or(&models.Client{
-		ClientEntity: &models.ClientEntity{
-			OriginClientID: clientID,
-		},
-	}).Delete(&models.Client{}).Error; err != nil {
+	if err := db.Transaction(func(tx *gorm.DB) error {
+		if err := tx.Unscoped().Where("tenant_id = ? AND (client_id = ? OR origin_client_id = ?)", client.TenantID, clientID, clientID).Delete(&models.ProxyConfig{}).Error; err != nil {
+			return err
+		}
+		return tx.Unscoped().Where("tenant_id = ? AND (client_id = ? OR origin_client_id = ?)", client.TenantID, clientID, clientID).Delete(&models.Client{}).Error
+	}); err != nil {
 		return err
+	}
+
+	if manager := m.ctx.GetApp().GetClientsManager(); manager != nil {
+		manager.Remove(clientID)
 	}
 	revokeResourcePermissions(m.ctx, defs.RBACObjClient, clientID, userInfo.GetTenantID())
 	return nil
@@ -256,6 +256,8 @@ func (m *clientMutation) UpdateClient(userInfo models.UserInfo, client *models.C
 	if err != nil {
 		return err
 	}
+	client.DeviceID = old.DeviceID
+	client.RuntimeID = old.RuntimeID
 	client.UserID = old.UserID
 	client.TenantID = old.TenantID
 	return db.Save(&models.Client{ClientEntity: client}).Error

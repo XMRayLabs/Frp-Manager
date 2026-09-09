@@ -371,11 +371,29 @@ jobs:
       - build-client-macos
       - build-client-android
     steps:
+      - uses: actions/checkout@v4
+
       - name: Download release assets
         uses: actions/download-artifact@v4
         with:
           path: release-assets
           merge-multiple: true
+
+      - name: Prepare release changelog
+        env:
+          RELEASE_VERSION: ${{ needs.prepare.outputs.version }}
+        shell: bash
+        run: |
+          awk -v version="$RELEASE_VERSION" '
+            $1 == "##" && $2 == version { found=1 }
+            found && $1 == "##" && $2 != version { exit }
+            found { print }
+            END { if (!found) exit 2 }
+          ' CHANGELOG.md > "release-assets/CHANGELOG-${RELEASE_VERSION}.md"
+          if [[ ! -s "release-assets/CHANGELOG-${RELEASE_VERSION}.md" ]]; then
+            echo "::error::CHANGELOG.md has no entry for ${RELEASE_VERSION}."
+            exit 1
+          fi
 
       - name: Publish release
         uses: softprops/action-gh-release@v2
@@ -383,7 +401,7 @@ jobs:
           tag_name: ${{ needs.prepare.outputs.release_tag }}
           name: frp-manager ${{ needs.prepare.outputs.version }}
           prerelease: false
-          generate_release_notes: true
+          body_path: release-assets/CHANGELOG-${{ needs.prepare.outputs.version }}.md
           files: release-assets/**
 
   docker:

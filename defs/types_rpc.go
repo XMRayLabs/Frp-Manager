@@ -7,8 +7,18 @@ import (
 )
 
 type Connector struct {
-	CliID   string
-	Conn    pb.Master_ServerSendServer
-	CliType string
-	SendMu  sync.Mutex
+	Done      chan struct{}
+	closeOnce sync.Once
+	CliID     string
+	Conn      pb.Master_ServerSendServer
+	CliType   string
+	SendMu    sync.Mutex
+}
+
+func (c *Connector) Close() {
+	c.closeOnce.Do(func() {
+		if c.Done != nil {
+			close(c.Done)
+		}
+	})
 }

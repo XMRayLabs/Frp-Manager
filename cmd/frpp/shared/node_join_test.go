@@ -1,9 +1,13 @@
 package shared
 
 import (
+	"crypto/sha256"
+	"fmt"
+	"github.com/Sakurame1/frp-manager/services/rpc"
 	"io"
 	"net/http"
 	"net/http/httptest"
+	"os"
 	"path/filepath"
 	"testing"
 
@@ -137,5 +141,107 @@ func TestAutoJoinEphemeralDoesNotPersist(t *testing.T) {
 	}
 	if _, err := autoJoinNode(cfg, CommonArgs{}, defs.AppRole_Client); err == nil {
 		t.Fatal("temporary node persisted")
+	}
+}
+
+func TestExplicitEnrollmentRecoversRevokedIdentity(t *testing.T) {
+	for _, role := range []defs.AppRole{defs.AppRole_Client, defs.AppRole_Server} {
+		t.Run(string(role), func(t *testing.T) {
+			dir := t.TempDir()
+			t.Setenv("APPDATA", dir)
+			t.Setenv("XDG_CONFIG_HOME", dir)
+			requests, created := 0, false
+			mode := "offline"
+			panel := httptest.NewServer(http.HandlerFunc(func(w http.ResponseWriter, req *http.Request) {
+				requests++
+				var response proto.Message
+				ok := &pb.Status{Code: pb.RespCode_RESP_CODE_SUCCESS}
+				if req.URL.Path == "/api/v1/auth/cert" {
+					if mode == "offline" {
+						w.WriteHeader(503)
+						return
+					}
+					if mode == "valid" {
+						response = &pb.GetClientCertResponse{Status: ok, Cert: []byte("certificate")}
+					} else {
+						w.WriteHeader(500)
+						response = &pb.GetClientCertResponse{Status: &pb.Status{Code: pb.RespCode_RESP_CODE_INVALID, Message: rpc.ErrDeviceCredentials.Error()}}
+					}
+				} else {
+					if req.Header.Get(defs.AuthorizationKey) != "enroll-token" {
+						t.Error("missing enrollment token")
+					}
+					switch req.URL.Path {
+					case "/api/v1/client/init":
+						created = true
+						response = &pb.InitClientResponse{Status: ok, ClientId: lo.ToPtr("owner.c.fresh")}
+					case "/api/v1/server/init":
+						created = true
+						response = &pb.InitServerResponse{Status: ok, ServerId: lo.ToPtr("owner.s.fresh")}
+					case "/api/v1/client/get":
+						if !created {
+							w.WriteHeader(404)
+							return
+						}
+						response = &pb.GetClientResponse{Status: ok, Client: &pb.Client{Id: lo.ToPtr("owner.c.fresh"), Secret: lo.ToPtr("fresh-secret")}}
+					case "/api/v1/server/get":
+						if !created {
+							w.WriteHeader(404)
+							return
+						}
+						response = &pb.GetServerResponse{Status: ok, Server: &pb.Server{Id: lo.ToPtr("owner.s.fresh"), Secret: lo.ToPtr("fresh-secret")}}
+					default:
+						t.Errorf("unexpected endpoint: %s", req.URL.Path)
+						w.WriteHeader(404)
+						return
+					}
+				}
+				data, _ := proto.Marshal(response)
+				w.Write(data)
+			}))
+			defer panel.Close()
+			cfg := conf.Config{}
+			cfg.Client.APIUrl = panel.URL
+			cfg.Client.JoinToken = "enroll-token"
+			cfg.Client.EnrollmentAttempt = "first"
+			key := sha256.Sum256([]byte(fmt.Sprintf("%s|%v|", panel.URL, role)))
+			path := filepath.Join(dir, "frp-manager", fmt.Sprintf("node-%x.json", key[:12]))
+			identity := nodeIdentity{API: panel.URL, Role: role, Name: "original", ID: "old-name", Secret: "old-secret", Attempt: "first"}
+			if err := writeNodeIdentity(path, identity); err != nil {
+				t.Fatal(err)
+			}
+			got, err := autoJoinNode(cfg, CommonArgs{}, role)
+			if err != nil || got.Client.Secret != "old-secret" || requests != 0 {
+				t.Fatal("restart must reuse identity without enrollment", err)
+			}
+			cfg.Client.EnrollmentAttempt = "second"
+			before, _ := os.ReadFile(path)
+			if _, err = autoJoinNode(cfg, CommonArgs{}, role); err == nil {
+				t.Fatal("outage must fail safely")
+			}
+			after, _ := os.ReadFile(path)
+			if string(before) != string(after) || created {
+				t.Fatal("outage changed identity")
+			}
+			mode = "valid"
+			got, err = autoJoinNode(cfg, CommonArgs{}, role)
+			if err != nil || got.Client.Secret != "old-secret" || created {
+				t.Fatal("valid identity should be retained", err)
+			}
+			mode = "revoked"
+			n := requests
+			if _, err = autoJoinNode(cfg, CommonArgs{}, role); err != nil || requests != n {
+				t.Fatal("ordinary restart resurrected revoked identity", err)
+			}
+			cfg.Client.EnrollmentAttempt = "third"
+			got, err = autoJoinNode(cfg, CommonArgs{}, role)
+			if err != nil || got.Client.Secret != "fresh-secret" || !created {
+				t.Fatal("explicit attempt did not recover revoked identity", err)
+			}
+			n = requests
+			if _, err = autoJoinNode(cfg, CommonArgs{}, role); err != nil || requests != n {
+				t.Fatal("successful enrollment was repeated", err)
+			}
+		})
 	}
 }

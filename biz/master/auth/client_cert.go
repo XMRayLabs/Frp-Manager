@@ -1,6 +1,7 @@
 package auth
 
 import (
+	"fmt"
 	"github.com/Sakurame1/frp-manager/pb"
 	"github.com/Sakurame1/frp-manager/services/app"
 	"github.com/Sakurame1/frp-manager/services/dao"
@@ -8,6 +9,9 @@ import (
 
 func GetClientCert(ctx *app.Context, req *pb.GetClientCertRequest) (*pb.GetClientCertResponse, error) {
 	var err error
+	if req.ClientType != pb.ClientType_CLIENT_TYPE_FRPC && req.ClientType != pb.ClientType_CLIENT_TYPE_FRPS {
+		return &pb.GetClientCertResponse{Status: &pb.Status{Code: pb.RespCode_RESP_CODE_INVALID, Message: "invalid device type"}}, fmt.Errorf("invalid device type")
+	}
 	if req.ClientType == pb.ClientType_CLIENT_TYPE_FRPC {
 		_, err = dao.NewQuery(ctx).ValidateClientSecret(req.GetClientId(), req.GetClientSecret())
 	}

@@ -320,7 +320,7 @@ export const ServerActions: React.FC<ServerItemProps> = ({ server, table }) => {
         </DropdownMenuTrigger>
         <DropdownMenuContent align="end">
           <DropdownMenuLabel>{t('server.actions_menu.title')}</DropdownMenuLabel>
-          <DropdownMenuItem onSelect={() => setRenameOpen(true)}>修改 ID</DropdownMenuItem>
+          <DropdownMenuItem onSelect={() => setRenameOpen(true)}>修改名称</DropdownMenuItem>
 
           <DropdownMenuSeparator />
           {isAdmin && (

@@ -5,7 +5,6 @@ import (
 	"net/http"
 	"regexp"
 	"strings"
-	"sync"
 
 	"github.com/Sakurame1/frp-manager/common"
 	"github.com/Sakurame1/frp-manager/defs"
@@ -16,7 +15,6 @@ import (
 	"gorm.io/gorm/clause"
 )
 
-var renameNodeMu sync.Mutex
 var nodeIDPattern = regexp.MustCompile(`^[A-Za-z0-9][A-Za-z0-9_.-]{0,127}$`)
 
 func RenameNode(instance app.Application, kind string) gin.HandlerFunc {
@@ -39,8 +37,8 @@ func RenameNode(instance app.Application, kind string) gin.HandlerFunc {
 }
 
 func renameNode(ctx *app.Context, kind, oldID, newID string) error {
-	renameNodeMu.Lock()
-	defer renameNodeMu.Unlock()
+	models.NodeIdentityMu.Lock()
+	defer models.NodeIdentityMu.Unlock()
 	user := common.GetUserInfo(ctx)
 	if !user.Valid() || (kind != "client" && kind != "server") {
 		return fmt.Errorf("无权修改节点")
@@ -64,7 +62,7 @@ func renameNode(ctx *app.Context, kind, oldID, newID string) error {
 				return fmt.Errorf("请修改物理客户端 ID，不能单独修改内部子配置 ID")
 			}
 			if client.Ephemeral {
-				return fmt.Errorf("临时客户端不支持修改 ID，请先接入为长期节点")
+				return fmt.Errorf("临时客户端不支持修改名称，请先接入为长期节点")
 			}
 			owner, tenant = client.UserID, client.TenantID
 		} else {
@@ -74,13 +72,23 @@ func renameNode(ctx *app.Context, kind, oldID, newID string) error {
 			owner, tenant = server.UserID, server.TenantID
 		}
 		if tenant != user.GetTenantID() || (!user.IsAdmin() && owner != user.GetUserID()) {
-			return fmt.Errorf("只有节点所有者或管理员可以修改 ID")
+			return fmt.Errorf("只有节点所有者或管理员可以修改名称")
 		}
 		if oldID == newID {
 			return nil
 		}
-		if err := models.CheckReservedNodeID(tx, newID); err != nil {
-			return err
+		// Ownership comes from the database, never from a supplied prefix.
+		var account models.User
+		if err := tx.Where("user_id = ? AND tenant_id = ?", owner, tenant).First(&account).Error; err != nil {
+			return fmt.Errorf("无法读取节点所属用户")
+		}
+		marker := ".c."
+		if kind == "server" {
+			marker = ".s."
+		}
+		prefix := account.UserName + marker
+		if !strings.HasPrefix(newID, prefix) || len(newID) == len(prefix) {
+			return fmt.Errorf("名称必须以 %s 开头，且后缀不能为空", prefix)
 		}
 		for _, target := range []struct{ table, column string }{{"clients", "client_id"}, {"servers", "server_id"}} {
 			var count int64
@@ -129,13 +137,7 @@ func renameNode(ctx *app.Context, kind, oldID, newID string) error {
 				return err
 			}
 		}
-		runtimeID := models.RuntimeNodeID(tx, kind, oldID)
-		if err := tx.Model(&models.NodeAlias{}).Where("new_id = ? AND kind = ?", oldID, kind).Update("new_id", newID).Error; err != nil {
-			return err
-		}
-		if err := tx.Create(&models.NodeAlias{OldID: oldID, NewID: newID, Kind: kind, RuntimeID: runtimeID}).Error; err != nil {
-			return err
-		}
+
 		if kind == "client" {
 			return tx.Unscoped().Where("client_id = ?", oldID).Delete(&models.Client{}).Error
 		}
@@ -148,7 +150,7 @@ func renameNode(ctx *app.Context, kind, oldID, newID string) error {
 		ctx.GetApp().GetClientsManager().Rename(oldID, newID)
 		if pm := ctx.GetApp().GetPermManager(); pm != nil {
 			if err := pm.Enforcer().LoadPolicy(); err != nil {
-				return fmt.Errorf("ID 已修改，但权限缓存刷新失败，请重启面板：%w", err)
+				return fmt.Errorf("名称已修改，但权限缓存刷新失败，请重启面板：%w", err)
 			}
 		}
 	}

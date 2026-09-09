@@ -15,12 +15,14 @@ type Server struct {
 }
 
 type ServerEntity struct {
+	DeviceID      string            `json:"-" gorm:"index"`
+	RuntimeID     string            `json:"-"`
 	ServerID      string            `json:"client_id" gorm:"uniqueIndex;not null;primaryKey"`
 	TenantID      int               `json:"tenant_id" gorm:"not null,index"`
 	UserID        int               `json:"user_id" gorm:"not null"`
 	ServerIP      string            `json:"server_ip"`
 	ConfigContent []byte            `json:"config_content"`
-	ConnectSecret string            `json:"connect_secret" gorm:"not null"`
+	ConnectSecret string            `json:"connect_secret" gorm:"not null;index"`
 	Comment       string            `json:"comment"`
 	FrpsUrls      GormArray[string] `json:"frps_urls"`
 	CreatedAt     time.Time

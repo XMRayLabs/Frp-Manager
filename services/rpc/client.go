@@ -6,6 +6,7 @@ import (
 	"io"
 
 	"github.com/Sakurame1/frp-manager/common"
+	"github.com/Sakurame1/frp-manager/defs"
 	"github.com/Sakurame1/frp-manager/models"
 	"github.com/Sakurame1/frp-manager/pb"
 	"github.com/Sakurame1/frp-manager/services/app"
@@ -30,7 +31,11 @@ func CallClientWrapper[R common.RespType](c *app.Context, clientID string, event
 }
 
 func CallClient(ctx *app.Context, clientID string, event pb.Event, msg proto.Message) (*pb.ClientMessage, error) {
-	sender := ctx.GetApp().GetClientsManager().Get(clientID)
+	return CallConnector(ctx, clientID, event, msg, ctx.GetApp().GetClientsManager().Get(clientID))
+}
+
+// CallConnector pins long-lived operations to an authenticated connection, even after name reuse.
+func CallConnector(ctx *app.Context, clientID string, event pb.Event, msg proto.Message, sender *defs.Connector) (*pb.ClientMessage, error) {
 	if sender == nil {
 		logger.Logger(ctx).Errorf("cannot get client, id: [%s]", clientID)
 		return nil, fmt.Errorf("cannot get client, id: [%s]", clientID)
@@ -40,7 +45,7 @@ func CallClient(ctx *app.Context, clientID string, event pb.Event, msg proto.Mes
 	wireMessage := proto.Clone(msg)
 	if wireMessage != nil {
 		rewriteRuntimeIDs(wireMessage.ProtoReflect(), func(kind, id string) string {
-			if kind == "client" && id == clientID {
+			if id == clientID && ((kind == "client" && sender.CliType == defs.CliTypeClient) || (kind == "server" && sender.CliType == defs.CliTypeServer)) {
 				return sender.CliID
 			}
 			if kind == "server" {
@@ -64,6 +69,8 @@ func CallClient(ctx *app.Context, clientID string, event pb.Event, msg proto.Mes
 
 	respCh := make(chan *pb.ClientMessage, 1)
 	ctx.GetApp().GetClientRecvMap().Store(req.SessionId, respCh)
+	ctx.GetApp().GetClientRecvMap().Store(req.SessionId+".owner", sender)
+	defer ctx.GetApp().GetClientRecvMap().Delete(req.SessionId + ".owner")
 	defer ctx.GetApp().GetClientRecvMap().Delete(req.SessionId)
 	sender.SendMu.Lock()
 	err = sender.Conn.Send(req)
@@ -76,6 +83,8 @@ func CallClient(ctx *app.Context, clientID string, event pb.Event, msg proto.Mes
 	var resp *pb.ClientMessage
 	select {
 	case resp = <-respCh:
+	case <-sender.Done:
+		return nil, fmt.Errorf("device disconnected")
 	case <-ctx.Done():
 		return nil, ctx.Err()
 	}
@@ -86,12 +95,21 @@ func CallClient(ctx *app.Context, clientID string, event pb.Event, msg proto.Mes
 }
 
 func Recv(appInstance app.Application, clientID string) chan bool {
-	done := make(chan bool)
+	return RecvConnector(appInstance, clientID, appInstance.GetClientsManager().Get(clientID))
+}
+
+func RecvConnector(appInstance app.Application, clientID string, reciver *defs.Connector) chan bool {
+	done := make(chan bool, 1)
 	go func() {
 		c := context.Background()
 		log := logger.Logger(c).WithField("clientID", clientID)
 		for {
-			reciver := appInstance.GetClientsManager().Get(clientID)
+			select {
+			case <-connectorDone(reciver):
+				done <- true
+				return
+			default:
+			}
 			if reciver == nil {
 				log.Errorf("cannot get client")
 				done <- true
@@ -116,12 +134,16 @@ func Recv(appInstance app.Application, clientID string) chan bool {
 			}
 
 			respCh, ok := respChAny.(chan *pb.ClientMessage)
-			if !ok {
-				log.Errorf("cannot cast")
+			owner, _ := appInstance.GetClientRecvMap().Load(resp.SessionId + ".owner")
+			if !ok || owner != reciver {
+				log.Errorf("response is not from the authenticated device")
 				continue
 			}
 			log.Debugf("recv success, resp: %+v", resp)
-			respCh <- resp
+			select {
+			case respCh <- resp:
+			default:
+			}
 		}
 	}()
 	return done
@@ -159,4 +181,11 @@ func rewriteRuntimeIDs(message protoreflect.Message, rewrite func(string, string
 		}
 		return true
 	})
+}
+
+func connectorDone(c *defs.Connector) <-chan struct{} {
+	if c == nil {
+		return nil
+	}
+	return c.Done
 }

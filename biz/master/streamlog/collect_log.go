@@ -46,18 +46,23 @@ func PushClientStreamLog(ctx *app.Context, sender pb.Master_PushClientStreamLogS
 			return err
 		}
 
-		_, err = client.ValidateClientRequest(ctx, req.GetBase())
+		node, err := client.ValidateClientRequest(ctx, req.GetBase())
 		if err != nil {
 			logger.Logger(context.Background()).WithError(err).Errorf("cannot validate client, id: [%+v]", req.GetBase())
 			return err
 		}
 
-		ch, ok := ctx.GetApp().GetClientLogManager().Load(req.GetBase().GetClientId())
+		ch, ok := ctx.GetApp().GetClientLogManager().Load(node.DeviceID)
 		if !ok {
 			return fmt.Errorf("push client stream log cannot find client, id: [%s]", req.GetBase().GetClientId())
 		}
 
-		ch <- string(req.GetLog())
+		select {
+		case ch <- string(req.GetLog()):
+		case <-sender.Context().Done():
+			return sender.Context().Err()
+		default:
+		}
 	}
 	return nil
 }
@@ -73,17 +78,22 @@ func PushServerStreamLog(ctx *app.Context, sender pb.Master_PushServerStreamLogS
 			return err
 		}
 
-		_, err = server.ValidateServerRequest(ctx, req.GetBase())
+		node, err := server.ValidateServerRequest(ctx, req.GetBase())
 		if err != nil {
 			logger.Logger(context.Background()).WithError(err).Errorf("cannot validate server, req: [%+v]", req.GetBase())
 			return err
 		}
 
-		ch, ok := ctx.GetApp().GetClientLogManager().Load(req.GetBase().GetServerId())
+		ch, ok := ctx.GetApp().GetClientLogManager().Load(node.DeviceID)
 		if !ok {
 			return fmt.Errorf("push server stream log cannot find server, id: [%s]", req.GetBase().GetServerId())
 		}
-		ch <- string(req.GetLog())
+		select {
+		case ch <- string(req.GetLog()):
+		case <-sender.Context().Done():
+			return sender.Context().Err()
+		default:
+		}
 	}
 	return nil
 }

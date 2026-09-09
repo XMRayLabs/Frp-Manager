@@ -394,7 +394,7 @@ export const ClientActions: React.FC<ClientItemProps> = ({ client, table }) => {
         </DropdownMenuTrigger>
         <DropdownMenuContent align="end">
           <DropdownMenuLabel>{t('client.actions_menu.title')}</DropdownMenuLabel>
-          <DropdownMenuItem onSelect={() => setRenameOpen(true)}>修改 ID</DropdownMenuItem>
+          <DropdownMenuItem onSelect={() => setRenameOpen(true)}>修改名称</DropdownMenuItem>
 
           <DropdownMenuItem
             onClick={async () => {

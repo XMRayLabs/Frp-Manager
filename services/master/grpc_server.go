@@ -15,6 +15,7 @@ import (
 	"github.com/Sakurame1/frp-manager/biz/master/worker"
 	"github.com/Sakurame1/frp-manager/conf"
 	"github.com/Sakurame1/frp-manager/defs"
+	"github.com/Sakurame1/frp-manager/models"
 	"github.com/Sakurame1/frp-manager/pb"
 	"github.com/Sakurame1/frp-manager/services/app"
 	"github.com/Sakurame1/frp-manager/services/dao"
@@ -162,100 +163,100 @@ func (s *server) ServerSend(sender pb.Master_ServerSendServer) error {
 
 	logger.Logger(ctx).Infof("server get a client connected")
 	var done chan bool
+	var connectionDone <-chan struct{}
 	for {
 		req, err := sender.Recv()
 		if err == io.EOF {
-			logger.Logger(ctx).Infof("finish server send, client id: [%s]", req.GetClientId())
+			logger.Logger(ctx).Infof("finish server send, client id: [%s]", "closed")
 			return nil
 		}
 
 		if err != nil {
-			logger.Logger(context.Background()).WithError(err).Errorf("cannot recv from client, id: [%s]", req.GetClientId())
+			logger.Logger(context.Background()).WithError(err).Errorf("cannot recv from client, id: [%s]", "unknown")
 			return err
 		}
 
 		cliType := ""
 
 		if req.GetEvent() == pb.Event_EVENT_REGISTER_CLIENT || req.GetEvent() == pb.Event_EVENT_REGISTER_SERVER {
-			if len(req.GetSecret()) == 0 {
-				logger.Logger(ctx).Errorf("rpc auth token is empty")
-				sender.Send(&pb.ServerMessage{
-					Event: req.GetEvent(),
-					Data:  []byte("rpc auth token is invalid"),
-				})
-				return fmt.Errorf("rpc auth token is invalid")
-			}
-			var secret string
-			canonicalID := req.GetClientId()
-			switch req.GetEvent() {
-			case pb.Event_EVENT_REGISTER_CLIENT:
-				cli, err := dao.NewQuery(ctx).AdminGetClientByClientID(req.GetClientId())
-				if err != nil {
-					logger.Logger(context.Background()).WithError(err).Errorf("cannot get client, %s id: [%s]", req.GetEvent().String(), req.GetClientId())
-					sender.Send(&pb.ServerMessage{
-						Event: req.GetEvent(),
-						Data:  []byte("rpc auth token is invalid"),
-					})
-					return err
+			var registeredID string
+			connector, err := func() (*defs.Connector, error) {
+				models.NodeIdentityMu.Lock()
+				defer models.NodeIdentityMu.Unlock()
+				if len(req.GetSecret()) == 0 {
+					logger.Logger(ctx).Errorf("rpc auth token is empty")
+					return nil, fmt.Errorf("rpc auth token is invalid")
 				}
-				canonicalID = cli.ClientID
-				secret = cli.ConnectSecret
-				cliType = defs.CliTypeClient
-			case pb.Event_EVENT_REGISTER_SERVER:
-				srv, err := dao.NewQuery(ctx).AdminGetServerByServerID(req.GetClientId())
-				if err != nil {
-					logger.Logger(context.Background()).WithError(err).Errorf("cannot get server, %s id: [%s]", req.GetEvent().String(), req.GetClientId())
-					sender.Send(&pb.ServerMessage{
-						Event: req.GetEvent(),
-						Data:  []byte("rpc auth token is invalid"),
-					})
-					return err
+				var secret string
+				canonicalID := req.GetClientId()
+				switch req.GetEvent() {
+				case pb.Event_EVENT_REGISTER_CLIENT:
+					cli, err := dao.NewQuery(ctx).ValidateClientSecret(req.GetClientId(), req.GetSecret())
+					if err != nil {
+						logger.Logger(context.Background()).WithError(err).Errorf("cannot get client, %s id: [%s]", req.GetEvent().String(), req.GetClientId())
+						return nil, err
+					}
+					canonicalID = cli.ClientID
+					if cli.OriginClientID != "" {
+						canonicalID = cli.OriginClientID
+					}
+					secret = cli.ConnectSecret
+					cliType = defs.CliTypeClient
+				case pb.Event_EVENT_REGISTER_SERVER:
+					srv, err := dao.NewQuery(ctx).ValidateServerSecret(req.GetClientId(), req.GetSecret())
+					if err != nil {
+						logger.Logger(context.Background()).WithError(err).Errorf("cannot get server, %s id: [%s]", req.GetEvent().String(), req.GetClientId())
+						return nil, err
+					}
+					canonicalID = srv.ServerID
+					secret = srv.ConnectSecret
+					cliType = defs.CliTypeServer
 				}
-				canonicalID = srv.ServerID
-				secret = srv.ConnectSecret
-				cliType = defs.CliTypeServer
-			}
 
-			if !utils.SecureStringEqual(secret, req.GetSecret()) {
-				logger.Logger(ctx).Errorf("invalid secret, %s id: [%s]", req.GetEvent().String(), req.GetClientId())
-				sender.Send(&pb.ServerMessage{
-					Event: req.GetEvent(),
-					Data:  []byte("rpc auth token is invalid"),
-				})
-				return fmt.Errorf("invalid secret, %s id: [%s]", req.GetEvent().String(), req.GetClientId())
-			}
-
-			if cliType == defs.CliTypeClient {
-				if err := dao.NewMutation(ctx).AdminUpdateClientLastSeen(canonicalID); err != nil {
-					logger.Logger(ctx).Errorf("cannot update client last seen, %s id: [%s]", req.GetEvent().String(), req.GetClientId())
+				if !utils.SecureStringEqual(secret, req.GetSecret()) {
+					logger.Logger(ctx).Errorf("invalid secret, %s id: [%s]", req.GetEvent().String(), req.GetClientId())
+					return nil, fmt.Errorf("invalid secret, %s id: [%s]", req.GetEvent().String(), req.GetClientId())
 				}
-			}
 
-			var clientVersion *pb.ClientVersion
-			if len(req.GetData()) > 0 {
-				clientVersion = &pb.ClientVersion{}
-				if err := proto.Unmarshal(req.GetData(), clientVersion); err != nil {
-					clientVersion = nil
+				if cliType == defs.CliTypeClient {
+					if err := dao.NewMutation(ctx).AdminUpdateClientLastSeen(canonicalID); err != nil {
+						logger.Logger(ctx).Errorf("cannot update client last seen, %s id: [%s]", req.GetEvent().String(), req.GetClientId())
+					}
 				}
-			}
-			if err := sender.Send(&pb.ServerMessage{
-				Event:     req.GetEvent(),
-				ClientId:  req.GetClientId(),
-				SessionId: req.GetClientId(),
-			}); err != nil {
+
+				var clientVersion *pb.ClientVersion
+				if len(req.GetData()) > 0 {
+					clientVersion = &pb.ClientVersion{}
+					if err := proto.Unmarshal(req.GetData(), clientVersion); err != nil {
+						clientVersion = nil
+					}
+				}
+
+				connector := s.appInstance.GetClientsManager().Set(canonicalID, cliType, &rpc.IdentityStream{Master_ServerSendServer: sender, ID: req.GetClientId()}, clientVersion)
+				connector.SendMu.Lock()
+				done = rpc.RecvConnector(s.appInstance, canonicalID, connector)
+				connectionDone = connector.Done
+				registeredID = canonicalID
+				logger.Logger(ctx).Infof("register success, client id: [%s], client type: [%s]", req.GetClientId(), cliType)
+				return connector, nil
+			}()
+			if err != nil {
 				return err
 			}
-			if canonicalID != req.GetClientId() {
-				s.appInstance.GetClientsManager().Rename(req.GetClientId(), canonicalID)
+			defer s.appInstance.GetClientsManager().RemoveIfCurrent(registeredID, connector)
+			err = sender.Send(&pb.ServerMessage{Event: req.GetEvent(), ClientId: registeredID, SessionId: registeredID})
+			connector.SendMu.Unlock()
+			if err != nil {
+				return err
 			}
-			connector := s.appInstance.GetClientsManager().Set(req.GetClientId(), cliType, sender, clientVersion)
-			done = rpc.Recv(s.appInstance, req.GetClientId())
-			logger.Logger(ctx).Infof("register success, client id: [%s], client type: [%s]", req.GetClientId(), cliType)
-			defer s.appInstance.GetClientsManager().RemoveIfCurrent(req.GetClientId(), connector)
 			break
 		}
 	}
-	<-done
+	select {
+	case <-done:
+	case <-connectionDone:
+	case <-sender.Context().Done():
+	}
 	return nil
 }
 

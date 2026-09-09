@@ -50,6 +50,7 @@ type Config struct {
 		DSN  string `env:"DSN" env-default:"/data/data.db?_pragma=journal_mode(WAL)" env-description:"db dsn, for sqlite is path, other is dsn, look at https://github.com/go-sql-driver/mysql#dsn-data-source-name"`
 	} `env-prefix:"DB_"`
 	Client struct {
+		EnrollmentAttempt     string `env:"ENROLLMENT_ATTEMPT" env-description:"unique ID for an explicit enrollment attempt; keep unchanged on restart"`
 		JoinToken             string `env:"JOIN_TOKEN" env-description:"panel enrollment token used only until node identity is saved"`
 		ID                    string `env:"ID" env-description:"client id"`
 		Secret                string `env:"SECRET" env-description:"client secret"`

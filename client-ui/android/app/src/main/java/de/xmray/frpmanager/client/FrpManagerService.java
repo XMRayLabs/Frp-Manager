@@ -80,6 +80,7 @@ public class FrpManagerService extends Service {
                 "CLIENT_ID=" + dotenv(profile.optString("clientId")),
                 "CLIENT_SECRET=" + dotenv(profile.optString("secret")),
                 "CLIENT_JOIN_TOKEN=" + dotenv(profile.optString("joinToken")),
+                "CLIENT_ENROLLMENT_ATTEMPT=" + dotenv(java.util.UUID.randomUUID().toString()),
                 "CLIENT_API_URL=" + dotenv(profile.optString("apiUrl")),
                 "CLIENT_RPC_URL=" + dotenv(profile.optString("rpcUrl")),
                 ""

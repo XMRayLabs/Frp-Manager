@@ -31,12 +31,13 @@ type CommonArgs struct {
 	RpcUrl       *string
 	ApiUrl       *string
 
-	RpcHost   *string
-	ApiHost   *string
-	RpcPort   *int
-	ApiPort   *int
-	ApiScheme *string
-	JoinToken *string
+	RpcHost           *string
+	ApiHost           *string
+	RpcPort           *int
+	ApiPort           *int
+	ApiScheme         *string
+	JoinToken         *string
+	EnrollmentAttempt *string
 
 	Ephemeral *bool
 }
@@ -76,6 +77,7 @@ func AddCommonFlags(commonCmd *cobra.Command) {
 	commonCmd.Flags().StringP("id", "i", "", "client id")
 	commonCmd.Flags().String("rpc-url", "", "rpc url, master rpc url, scheme can be grpc/ws/wss://hostname:port")
 	commonCmd.Flags().String("api-url", "", "api url, master api url, scheme can be http/https://hostname:port")
+	commonCmd.Flags().String("enrollment-attempt", "", "unique attempt ID for explicit re-enrollment; reuse the same value on restart")
 	commonCmd.Flags().StringP("join-token", "j", "", "your token from master, auto join with out webui")
 	commonCmd.Flags().Bool("ephemeral", false, "auto join with join-token, whether the client is ephemeral, change flag to --ephemeral=false to disable")
 
@@ -128,6 +130,9 @@ func GetCommonArgs(cmd *cobra.Command) CommonArgs {
 		commonArgs.ApiScheme = &apiScheme
 	}
 
+	if attempt, err := cmd.Flags().GetString("enrollment-attempt"); err == nil {
+		commonArgs.EnrollmentAttempt = &attempt
+	}
 	if joinToken, err := cmd.Flags().GetString("join-token"); err == nil {
 		commonArgs.JoinToken = &joinToken
 	}
