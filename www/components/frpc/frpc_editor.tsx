@@ -1,107 +1,29 @@
-import { Label } from '@radix-ui/react-label'
+import { useState } from 'react'
 import { Textarea } from '@/components/ui/textarea'
+import { Button } from '@/components/ui/button'
 import { FRPCFormProps } from './frpc_form'
 import { useMutation } from '@tanstack/react-query'
-import { useEffect, useState } from 'react'
-import { Button } from '@/components/ui/button'
 import { updateFRPC } from '@/api/frp'
 import { RespCode } from '@/lib/pb/common'
-import { useTranslation } from 'react-i18next'
+import { ObjToUint8Array } from '@/lib/utils'
 import { toast } from 'sonner'
 
-export const FRPCEditor: React.FC<FRPCFormProps> = ({ clientID, serverID, client, refetchClient, frpsUrl }) => {
-  const { t } = useTranslation()
-
-  const [configContent, setConfigContent] = useState<string>('{}')
-  const [clientComment, setClientComment] = useState<string>('')
-  const updateFrpc = useMutation({ mutationFn: updateFRPC })
-  const [editorValue, setEditorValue] = useState<string>('')
-
-  const handleSubmit = async () => {
-    try {
-      let res = await updateFrpc.mutateAsync({
-        clientId: clientID,
-        //@ts-ignore
-        config: Buffer.from(editorValue),
-        serverId: serverID,
-        comment: clientComment,
-        frpsUrl: frpsUrl, 
-      })
-      if (res.status?.code !== RespCode.SUCCESS) {
-        toast(t('client.operation.update_failed', {
-          error: res.status?.message,
-        }))
-        return
-      }
-      toast(t('client.operation.update_success'))
-    } catch (error) {
-      toast(t('client.operation.update_failed'), {
-        description: JSON.stringify(error),
-      })
-    }
-  }
-
-  useEffect(() => {
-    refetchClient().then((cliData) => {
-      setConfigContent(
-        JSON.stringify(
-          JSON.parse(
-            //@ts-ignore
-            cliData?.data?.client?.config == undefined ? '{}' || cliData?.data?.client?.config == '' : cliData?.data?.client?.config,
-          ),
-          null,
-          2,
-        ),
-      )
-      setEditorValue(
-        JSON.stringify(
-          JSON.parse(
-            cliData?.data?.client?.config == undefined || cliData?.data?.client?.config == '' ? '{}' : cliData?.data?.client?.config,
-          ),
-          null,
-          2,
-        ),
-      )
-      setClientComment(cliData?.data?.client?.comment || '')
-    }).catch(() => {
-      setConfigContent('{}')
-      setEditorValue('{}')
-      setClientComment('')
-    })
-  }, [clientID, refetchClient])
-
-  return (
-    <div className="grid w-full gap-1.5">
-      <Label className="text-sm font-medium">{t('client.editor.comment_title', { id: clientID })}</Label>
-      <Textarea
-        key={client?.comment}
-        placeholder={t('client.editor.comment_placeholder')}
-        id="message"
-        defaultValue={client?.comment}
-        onChange={(e) => setClientComment(e.target.value)}
-        className="h-12"
-      />
-      <Label className="text-sm font-medium">{t('client.editor.config_title', { id: clientID })}</Label>
-      <p className="text-sm text-muted-foreground">
-        {t('client.editor.config_description')}
-      </p>
-      <Textarea
-        key={configContent}
-        placeholder={t('client.editor.config_placeholder')}
-        id="message"
-        defaultValue={configContent}
-        onChange={(e) => setEditorValue(e.target.value)}
-        className="h-72"
-      />
-      <div className="grid grid-cols-2 gap-2 mt-1">
-        <Button size="sm" onClick={handleSubmit}>
-          {t('common.submit')}
-        </Button>
-        {/* <Button variant="outline" size="sm" onClick={async () => {
-				await refetchClient()
-				setConfigContent(client?.client?.config == undefined ? "{}" : client?.client?.config)
-			}}>加载服务端配置</Button> */}
-      </div>
-    </div>
-  )
+export const FRPCEditor: React.FC<FRPCFormProps> = ({ clientID, serverID, client, frpsUrl, refetchClient }) => {
+  const [value, setValue] = useState(() => { try { return JSON.stringify(JSON.parse(client?.config || '{}'), null, 2) } catch { return client?.config || '{}' } })
+  const [comment, setComment] = useState(client?.comment || '')
+  const mutation = useMutation({ mutationFn: updateFRPC })
+  let error = ''
+  try { const parsed = JSON.parse(value); if (!parsed || typeof parsed !== 'object' || Array.isArray(parsed)) error = '配置必须是 JSON 对象' } catch { error = 'JSON 格式有误，请修正后保存' }
+  return <div className="grid gap-4">
+    <label className="grid gap-2 text-sm">备注<Textarea value={comment} onChange={e => setComment(e.target.value)} /></label>
+    <label className="grid gap-2 text-sm">完整 JSON 配置<Textarea className="min-h-[420px] font-mono" value={value} onChange={e => setValue(e.target.value)} spellCheck={false} /></label>
+    {error && <p role="alert" className="text-sm text-destructive">{error}</p>}
+    <Button disabled={!!error || mutation.isPending} onClick={async () => {
+      try {
+        const response = await mutation.mutateAsync({ clientId: clientID, serverId: serverID, config: ObjToUint8Array(JSON.parse(value)), comment, frpsUrl })
+        if (response.status?.code !== RespCode.SUCCESS) throw new Error(response.status?.message || '保存失败')
+        await refetchClient(); toast.success('配置已保存')
+      } catch (error) { toast.error(error instanceof Error ? error.message : '保存失败') }
+    }}>{mutation.isPending ? '正在保存…' : '保存完整配置'}</Button>
+  </div>
 }

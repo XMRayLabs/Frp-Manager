@@ -1,151 +1,80 @@
-"use client"
+'use client'
 
-import React, { useEffect } from 'react'
-import { useState } from 'react'
-import { Label } from '@radix-ui/react-label'
+import { useEffect, useMemo, useState } from 'react'
 import { useQuery } from '@tanstack/react-query'
-import { getClient } from '@/api/client'
-import { Card, CardContent, CardDescription, CardHeader, CardTitle } from '@/components/ui/card'
-import { Switch } from '@/components/ui/switch'
-import { FRPCEditor } from './frpc_editor'
-import { FRPCForm } from './frpc_form'
 import { useSearchParams } from 'next/navigation'
+import { getClient } from '@/api/client'
+import { RespCode, Server } from '@/lib/pb/common'
 import { ClientConfig } from '@/types/client'
 import { TypedProxyConfig } from '@/types/proxy'
 import { ClientSelector } from '../base/client-selector'
 import { ServerSelector } from '../base/server-selector'
-import { useTranslation } from 'react-i18next'
-import { Input } from '../ui/input'
-import { Server } from '@/lib/pb/common'
 import { SuggestiveInput } from '../base/suggestive-input'
+import { Button } from '../ui/button'
+import { FRPCForm } from './frpc_form'
+import { FRPCEditor } from './frpc_editor'
+import { ProxyConfigList } from '../proxy/proxy_config_list'
+import { ProxyConfigMutateDialog } from '../proxy/mutate_proxy_config'
 
-export interface FRPCFormCardProps {
-  clientID?: string
-  serverID?: string
-}
+export interface FRPCFormCardProps { clientID?: string; serverID?: string }
 
-export const FRPCFormCard: React.FC<FRPCFormCardProps> = ({
-  clientID: defaultClientID,
-  serverID: defaultServerID,
-}: FRPCFormCardProps) => {
-  const { t } = useTranslation()
-  const [advanceMode, setAdvanceMode] = useState<boolean>(false)
-  const [clientID, setClientID] = useState<string | undefined>()
-  const [serverID, setServerID] = useState<string | undefined>()
-  const searchParams = useSearchParams()
-  const paramClientID = searchParams.get('clientID')
+export function FRPCFormCard({ clientID: defaultClientID, serverID: defaultServerID }: FRPCFormCardProps) {
+  const params = useSearchParams()
+  const [clientID, setClientID] = useState<string>()
+  const [serverID, setServerID] = useState<string>()
+  const [mode, setMode] = useState<'tunnels' | 'connection' | 'json'>('tunnels')
   const [clientProxyConfigs, setClientProxyConfigs] = useState<TypedProxyConfig[]>([])
-  const [frpsUrl, setFrpsUrl] = useState<string | undefined>()
-  const [selectedServer, setSelectedServer] = useState<Server | undefined>(undefined)
-
-  useEffect(() => {
-    if (defaultClientID) {
-      setClientID(defaultClientID)
-    }
-    if (defaultServerID) {
-      setServerID(defaultServerID)
-    }
-  }, [defaultClientID, defaultServerID])
-
-  const { data: client, refetch: refetchClient, error } = useQuery({
+  const [frpsUrl, setFrpsUrl] = useState('')
+  const [selectedServer, setSelectedServer] = useState<Server>()
+  const paramClientID = params.get('clientID')
+  useEffect(() => { setClientID(defaultClientID || paramClientID || undefined); setServerID(defaultServerID) }, [defaultClientID, defaultServerID, paramClientID])
+  const query = useQuery({
     queryKey: ['getClient', clientID, serverID],
-    queryFn: () => {
-      return getClient({ clientId: clientID, serverId: serverID })
+    queryFn: async () => {
+      const result = await getClient({ clientId: clientID, serverId: serverID })
+      if (result.status?.code !== RespCode.SUCCESS) throw new Error(result.status?.message || '读取配置失败')
+      return result
     },
+    enabled: !!clientID && !!serverID && mode !== 'tunnels',
     retry: false,
+    refetchOnWindowFocus: false,
   })
-
+  const parsed = useMemo(() => {
+    try { const config = JSON.parse(query.data?.client?.config || '{}'); if (!config || typeof config !== 'object' || Array.isArray(config)) throw new Error('Invalid config'); return { config: config as ClientConfig, error: '' } }
+    catch { return { config: {} as ClientConfig, error: '现有配置格式有误，请使用 JSON 编辑修复。' } }
+  }, [query.data])
   useEffect(() => {
-    if (error) {
-      setClientProxyConfigs([])
-    }
-  }, [error])
-
-  useEffect(() => {
-    if (!client || !client?.client) return
-    if (client?.client?.config == undefined) return
-
-    const clientConf = JSON.parse(client?.client?.config || '{}') as ClientConfig
-
-    const proxyConfs = clientConf.proxies
-    if (proxyConfs) {
-      setClientProxyConfigs(proxyConfs)
-    }
-    if (clientConf != undefined && clientConf.proxies == undefined) {
-      setClientProxyConfigs([])
-    }
-
-    if (client?.client?.frpsUrl) {
-      setFrpsUrl(client?.client?.frpsUrl)
-    }
-  }, [client, refetchClient, setClientProxyConfigs])
-
-  useEffect(() => {
-    if (paramClientID) {
-      setClientID(paramClientID)
-      if (client?.client?.serverId) {
-        setServerID(client?.client?.serverId)
-      }
-    }
-  }, [client?.client?.serverId, paramClientID])
-
-  useEffect(() => {
-    if (clientID && client?.client?.serverId) {
-      setServerID(client?.client?.serverId)
-    }
-  }, [clientID, paramClientID, client])
-
+    setClientProxyConfigs(parsed.config.proxies || [])
+    setFrpsUrl(query.data?.client?.frpsUrl || '')
+  }, [parsed.config, query.data])
+  const formProps = { clientID: clientID!, serverID: serverID!, client: query.data?.client, clientConfig: parsed.config, refetchClient: query.refetch, clientProxyConfigs, setClientProxyConfigs, frpsUrl }
   return (
-    <Card className="w-full">
-      <CardHeader>
-        <CardTitle>{t('frpc.form.title')}</CardTitle>
-        <CardDescription>
-          <div>{t('frpc.form.description.warning')}</div>
-          <div>{t('frpc.form.description.instruction')}</div>
-        </CardDescription>
-      </CardHeader>
-      <CardContent>
-        <div className="flex items-center space-x-4 rounded-md border p-4">
-          <div className="flex-1 space-y-1">
-            <p className="text-sm font-medium leading-none">{t('frpc.form.advanced.title')}</p>
-            <p className="text-sm text-muted-foreground">{t('frpc.form.advanced.description')}</p>
+    <div className="space-y-5">
+      <div className="grid gap-4 rounded-xl border bg-card p-4 sm:grid-cols-2">
+        <div className="space-y-2"><p className="text-sm font-medium">当前客户端</p><ClientSelector clientID={clientID} setClientID={(id) => { setClientID(id); setServerID(undefined) }} /></div>
+        <div className="space-y-2"><p className="text-sm font-medium">{mode === 'tunnels' ? '所属服务端（可选筛选）' : '要修改连接的服务端'}</p><div className="flex gap-2"><ServerSelector serverID={serverID} setServerID={setServerID} setServer={setSelectedServer} />{mode === 'tunnels' && serverID && <Button variant="outline" onClick={() => setServerID(undefined)}>全部</Button>}</div></div>
+      </div>
+      <div className="flex flex-wrap gap-2" aria-label="客户端配置方式">
+        <Button variant={mode === 'tunnels' ? 'default' : 'outline'} onClick={() => setMode('tunnels')}>隧道管理</Button>
+        <Button variant={mode === 'connection' ? 'default' : 'outline'} onClick={() => setMode('connection')}>连接与批量配置</Button>
+        <Button variant={mode === 'json' ? 'default' : 'outline'} onClick={() => setMode('json')}>JSON 编辑</Button>
+      </div>
+      {!clientID ? <p className="text-sm text-muted-foreground">请选择客户端。</p> : mode === 'tunnels' ? <>
+        <div className="rounded-xl border bg-card p-4 space-y-3">
+          <p className="text-sm text-muted-foreground">选择用途即可添加隧道。自动填写当前客户端，名称自动生成；每条隧道单独保存。</p>
+          <div className="flex flex-wrap gap-2">
+            <ProxyConfigMutateDialog key={`http-${clientID}-${serverID}`} defaultClientID={clientID} defaultServerID={serverID} initialPurpose="http" triggerLabel="添加 HTTP 代理" />
+            <ProxyConfigMutateDialog key={`socks-${clientID}-${serverID}`} defaultClientID={clientID} defaultServerID={serverID} initialPurpose="socks5" triggerLabel="添加 SOCKS5 代理" />
+            <ProxyConfigMutateDialog key={`tcp-${clientID}-${serverID}`} defaultClientID={clientID} defaultServerID={serverID} initialPurpose="tcp" triggerLabel="添加 TCP 映射" />
           </div>
-          <Switch onCheckedChange={setAdvanceMode} />
         </div>
-        <div className="flex flex-col w-full pt-2 space-y-2">
-          <Label className="text-sm font-medium">{t('frpc.form.server')}</Label>
-          <ServerSelector serverID={serverID} setServerID={setServerID} setServer={setSelectedServer} />
-          <Label className="text-sm font-medium">{t('frpc.form.client')}</Label>
-          <ClientSelector clientID={clientID} setClientID={setClientID} />
-          <Label className="text-sm font-medium">{t('frpc.form.frps_url.title')}</Label>
-          <p className="text-sm text-muted-foreground">{t('frpc.form.frps_url.hint')}</p>
-          <SuggestiveInput value={frpsUrl || ''} onChange={setFrpsUrl} suggestions={selectedServer?.frpsUrls || []} />
-        </div>
-        {clientID && !advanceMode && <div className='flex flex-col w-full pt-2 space-y-2'>
-          <Label className="text-sm font-medium">{t('frpc.form.comment.title', { id: clientID })}</Label>
-          <p className="text-sm text-muted-foreground">{t('frpc.form.comment.hint')}</p>
-          <p className="text-sm border rounded p-2 my-2">
-            {client?.client?.comment == undefined || client?.client?.comment === '' ? t('frpc.form.comment.empty') : client?.client?.comment}
-          </p></div>}
-        {clientID && serverID && !advanceMode && <FRPCForm
-          client={client?.client}
-          clientConfig={JSON.parse(client?.client?.config || '{}') as ClientConfig} refetchClient={refetchClient}
-          clientID={clientID} serverID={serverID}
-          clientProxyConfigs={clientProxyConfigs}
-          setClientProxyConfigs={setClientProxyConfigs}
-          frpsUrl={frpsUrl}
-        />
-        }
-        {clientID && serverID && advanceMode && <FRPCEditor
-          client={client?.client}
-          clientConfig={JSON.parse(client?.client?.config || '{}') as ClientConfig} refetchClient={refetchClient}
-          clientID={clientID} serverID={serverID}
-          clientProxyConfigs={clientProxyConfigs}
-          setClientProxyConfigs={setClientProxyConfigs}
-          frpsUrl={frpsUrl}
-        />
-        }
-      </CardContent>
-    </Card>
+        <ProxyConfigList ProxyConfigs={[]} ClientID={clientID} ServerID={serverID} />
+      </> : !serverID ? <p className="rounded-lg border p-4 text-sm text-muted-foreground">先选择服务端，再读取和修改该客户端与它之间的连接配置。添加 HTTP、SOCKS5 或 TCP 隧道请使用“隧道管理”。</p> : query.isPending ? <p>正在读取配置…</p> : query.isError ? <div role="alert">{query.error.message}<Button variant="link" onClick={() => query.refetch()}>重试</Button></div> : <div className="rounded-xl border bg-card p-5 space-y-4">
+        <details className="rounded-lg border p-3"><summary className="cursor-pointer text-sm">自定义连接地址（通常无需修改）</summary><div className="mt-3"><SuggestiveInput value={frpsUrl} onChange={setFrpsUrl} suggestions={selectedServer?.frpsUrls || []} /></div></details>
+        {parsed.error && <p role="alert" className="text-destructive">{parsed.error}</p>}
+        {mode === 'connection' && !parsed.error && <FRPCForm key={`${clientID}-${serverID}`} {...formProps} />}
+        {mode === 'json' && <FRPCEditor key={`${clientID}-${serverID}`} {...formProps} />}
+      </div>}
+    </div>
   )
 }

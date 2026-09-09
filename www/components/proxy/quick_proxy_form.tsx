@@ -20,16 +20,16 @@ import { toast } from 'sonner'
 
 type Purpose = 'http' | 'socks5' | 'tcp'
 
-export function QuickProxyForm({ onSuccess }: { onSuccess?: () => void }) {
+export function QuickProxyForm({ onSuccess, defaultClientID, defaultServerID, initialPurpose = 'http' }: { onSuccess?: () => void; defaultClientID?: string; defaultServerID?: string; initialPurpose?: Purpose }) {
   const { i18n } = useTranslation()
   const text = (zh: string, en: string) => i18n.language.startsWith('zh') ? zh : en
   const id = useId()
-  const [purpose, setPurpose] = useState<Purpose>('http')
-  const [clientId, setClientId] = useState<string>()
-  const [serverId, setServerId] = useState<string>()
+  const [purpose, setPurpose] = useState<Purpose>(initialPurpose)
+  const [clientId, setClientId] = useState<string | undefined>(defaultClientID)
+  const [serverId, setServerId] = useState<string | undefined>(defaultServerID)
   const [server, setServer] = useState<Server>()
   const [existing, setExisting] = useState(false)
-  const [port, setPort] = useState('8080')
+  const [port, setPort] = useState(initialPurpose === 'socks5' ? '1080' : '8080')
   const [samePort, setSamePort] = useState(true)
   const [remotePort, setRemotePort] = useState('8080')
   const [localIP, setLocalIP] = useState('127.0.0.1')

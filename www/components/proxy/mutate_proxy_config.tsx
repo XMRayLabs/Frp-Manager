@@ -35,6 +35,10 @@ import { $userInfo } from '@/store/user'
 import { automaticProxyName } from '@/lib/proxy-name'
 
 export type ProxyConfigMutateDialogProps = {
+  defaultClientID?: string
+  defaultServerID?: string
+  initialPurpose?: 'http' | 'socks5' | 'tcp'
+  triggerLabel?: string
   overwrite?: boolean
   defaultProxyConfig?: TypedProxyConfig
   defaultOriginalProxyConfig?: ProxyConfig
@@ -49,10 +53,10 @@ export const ProxyConfigMutateDialog = ({ ...props }: ProxyConfigMutateDialogPro
     <Dialog>
       <DialogTrigger asChild>
         <Button variant="outline" className="w-fit">
-          {t('proxy.config.create')}
+          {props.triggerLabel ?? '添加隧道（HTTP / SOCKS5 / TCP）'}
         </Button>
       </DialogTrigger>
-      <DialogContent className="max-h-[90vh] overflow-auto">
+      <DialogContent className="w-[min(96vw,52rem)] max-w-[52rem] max-h-[90vh] overflow-auto">
         <DialogHeader>
           <DialogTitle>{t('proxy.config.create_proxy')}</DialogTitle>
           <DialogDescription>{t('proxy.config.create_proxy_description')}</DialogDescription>
@@ -64,6 +68,8 @@ export const ProxyConfigMutateDialog = ({ ...props }: ProxyConfigMutateDialogPro
 }
 
 const AdvancedProxyConfigMutateForm = ({
+  defaultClientID,
+  defaultServerID,
   overwrite,
   defaultProxyConfig,
   defaultOriginalProxyConfig,
@@ -71,8 +77,8 @@ const AdvancedProxyConfigMutateForm = ({
   onSuccess,
 }: ProxyConfigMutateDialogProps) => {
   const { t } = useTranslation()
-  const [newClientID, setNewClientID] = useState<string | undefined>()
-  const [newServerID, setNewServerID] = useState<string | undefined>()
+  const [newClientID, setNewClientID] = useState<string | undefined>(defaultClientID)
+  const [newServerID, setNewServerID] = useState<string | undefined>(defaultServerID)
   const [proxyConfigs, setProxyConfigs] = useState<TypedProxyConfig[]>([])
   const [proxyName, setProxyName] = useState<string | undefined>(() => nanoid(8))
   const user = useStore($userInfo)
@@ -225,7 +231,7 @@ export const ProxyConfigMutateForm = (props: ProxyConfigMutateDialogProps) => {
       <Button type="button" variant={advanced ? 'outline' : 'default'} aria-pressed={!advanced} onClick={() => setAdvanced(false)}>{zh ? '快捷配置' : 'Quick setup'}</Button>
       <Button type="button" variant={advanced ? 'default' : 'outline'} aria-pressed={advanced} onClick={() => setAdvanced(true)}>{zh ? '完整配置' : 'Full configuration'}</Button>
     </div>
-    <div hidden={advanced}><QuickProxyForm onSuccess={props.onSuccess} /></div>
+    <div hidden={advanced}><QuickProxyForm onSuccess={props.onSuccess} defaultClientID={props.defaultClientID} defaultServerID={props.defaultServerID} initialPurpose={props.initialPurpose} /></div>
     <div hidden={!advanced}><AdvancedProxyConfigMutateForm {...props} /></div>
   </div>
 }

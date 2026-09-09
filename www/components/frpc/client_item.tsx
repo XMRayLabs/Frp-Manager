@@ -391,24 +391,7 @@ export const ClientActions: React.FC<ClientItemProps> = ({ client, table }) => {
         </DropdownMenuTrigger>
         <DropdownMenuContent align="end">
           <DropdownMenuLabel>{t('client.actions_menu.title')}</DropdownMenuLabel>
-          <DropdownMenuItem
-            onClick={async () => {
-              try {
-                if (platformInfo) {
-                  await copyText(ExecCommandStr('client', client, platformInfo))
-                  toast(t('client.actions_menu.copy_success'))
-                } else {
-                  toast(t('client.actions_menu.copy_failed'))
-                }
-              } catch (error) {
-                toast(t('client.actions_menu.copy_failed'), {
-                  description: JSON.stringify(error),
-                })
-              }
-            }}
-          >
-            {t('client.actions_menu.copy_start_command')}
-          </DropdownMenuItem>
+
           <DropdownMenuItem
             onClick={async () => {
               try {

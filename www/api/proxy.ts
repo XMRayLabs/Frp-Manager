@@ -1,4 +1,5 @@
 import http from '@/api/http'
+import { RespCode } from '@/lib/pb/common'
 import { API_PATH } from '@/lib/consts'
 import {
   CreateProxyConfigRequest,
@@ -22,7 +23,9 @@ import { BaseResponse } from '@/types/api'
 
 export const createProxyConfig = async (req: CreateProxyConfigRequest) => {
   const res = await http.post(API_PATH + '/proxy/create_config', CreateProxyConfigRequest.toJson(req))
-  return CreateProxyConfigResponse.fromJson((res.data as BaseResponse).body)
+  const response = CreateProxyConfigResponse.fromJson((res.data as BaseResponse).body)
+  if (response.status?.code !== RespCode.SUCCESS) throw new Error(response.status?.message || '创建隧道失败')
+  return response
 }
 
 export const listProxyConfig = async (req: ListProxyConfigsRequest) => {

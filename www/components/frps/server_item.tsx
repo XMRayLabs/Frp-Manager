@@ -316,22 +316,7 @@ export const ServerActions: React.FC<ServerItemProps> = ({ server, table }) => {
         </DropdownMenuTrigger>
         <DropdownMenuContent align="end">
           <DropdownMenuLabel>{t('server.actions_menu.title')}</DropdownMenuLabel>
-          <DropdownMenuItem
-            onClick={async () => {
-              try {
-                if (platformInfo) {
-                  await copyText(ExecCommandStr('server', server, platformInfo))
-                  toast(t('server.actions_menu.copy_success'))
-                } else {
-                  toast(t('server.actions_menu.copy_failed'))
-                }
-              } catch (error) {
-                toast(t('server.actions_menu.copy_failed'))
-              }
-            }}
-          >
-            {t('server.actions_menu.copy_command')}
-          </DropdownMenuItem>
+
           <DropdownMenuSeparator />
           {isAdmin && (
             <DropdownMenuItem

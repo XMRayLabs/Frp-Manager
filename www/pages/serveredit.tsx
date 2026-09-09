@@ -17,7 +17,7 @@ export default function ServerListPage() {
           </div>
         ) : userInfo.role === 'admin' ? (
           <div className="w-full flex items-center justify-center">
-            <div className="flex-1 flex-col max-w-2xl">
+            <div className="flex-1 flex-col max-w-6xl">
               <FRPSFormCard />
             </div>
           </div>
