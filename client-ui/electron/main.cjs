@@ -294,10 +294,10 @@ async function runMacServiceAction(action, profile) {
       await fs.writeFile(tempConfig, config, { encoding: 'utf8', mode: 0o600 })
 
       if (action === 'apply') {
-        const controlBinary = fsSync.existsSync(macServiceBinary) ? macServiceBinary : sourceBinary
+        const controlBinary = sourceBinary
         commands.push(
-          `${processCommand(controlBinary, ['stop'])} >/dev/null 2>&1 || true`,
-          `${processCommand(controlBinary, ['uninstall'])} >/dev/null 2>&1 || true`,
+          processCommand(controlBinary, ['stop']),
+          processCommand(controlBinary, ['uninstall']),
         )
       }
       commands.push(

@@ -207,3 +207,7 @@ test('enrollment profiles persist the token and keep startup updates enabled', (
   assert.match(config, /^APP_AUTO_UPDATE=true$/m)
   assert.equal(redactSecrets('CLIENT_JOIN_TOKEN=abc --join-token=def -j ghi'), 'CLIENT_JOIN_TOKEN=[redacted] --join-token=[redacted] -j [redacted]')
 })
+
+test('removes ANSI colors from service errors', () => {
+  assert.equal(redactSecrets('\x1b[31mLoad failed: 5\x1b[0m'), 'Load failed: 5')
+})

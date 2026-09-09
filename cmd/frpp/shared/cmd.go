@@ -193,7 +193,7 @@ func NewMasterCmd(cfg conf.Config, fs embed.FS) *cobra.Command {
 			}
 
 			if !cfg.IsDebug {
-				opts = append(opts, fx.NopLogger)
+				opts = append(opts, nodeErrorLogging())
 			}
 
 			run := func() {
@@ -236,7 +236,7 @@ func NewClientCmd(cfg conf.Config) *cobra.Command {
 			}
 
 			if !cfg.IsDebug {
-				opts = append(opts, fx.NopLogger)
+				opts = append(opts, nodeErrorLogging())
 			}
 
 			run := func() {
@@ -284,7 +284,7 @@ func NewServerCmd(cfg conf.Config) *cobra.Command {
 			}
 
 			if !cfg.IsDebug {
-				opts = append(opts, fx.NopLogger)
+				opts = append(opts, nodeErrorLogging())
 			}
 
 			run := func() {

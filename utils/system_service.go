@@ -8,6 +8,7 @@ import (
 	"path/filepath"
 	"runtime"
 	"strings"
+	"time"
 
 	"github.com/Sakurame1/frp-manager/utils/logger"
 	"github.com/kardianos/service"
@@ -92,7 +93,24 @@ func ControlSystemServiceWithOptions(svcName string, args []string, action strin
 		return err
 	}
 
-	if err := service.Control(s, action); err != nil {
+	control := func() error {
+		userService, _ := options["UserService"].(bool)
+		if runtime.GOOS == "darwin" && !userService && (action == "start" || action == "stop" || action == "restart" || action == "uninstall") {
+			if err := controlLaunchd(svcName, action, runLaunchctl, func() { time.Sleep(500 * time.Millisecond) }); err != nil {
+				return err
+			}
+			if action == "uninstall" {
+				err := os.Remove(filepath.Join("/Library/LaunchDaemons", svcName+".plist"))
+				if os.IsNotExist(err) {
+					return nil
+				}
+				return err
+			}
+			return nil
+		}
+		return service.Control(s, action)
+	}
+	if err := control(); err != nil {
 		logger.Logger(ctx).WithError(err).Errorf("controller %v service failed", action)
 		return err
 	}

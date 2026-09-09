@@ -297,7 +297,7 @@ function buildManagedServiceConfig(profile, globalSecret) {
 }
 
 function redactSecrets(value, secrets = []) {
-  let result = String(value || '')
+  let result = String(value || '').replace(/\x1b\[[0-?]*[ -/]*[@-~]/g, '')
   for (const secret of secrets) {
     if (secret) result = result.split(secret).join('[redacted]')
   }

@@ -7,7 +7,9 @@ import (
 	"fmt"
 	"net/url"
 	"os"
+	"os/user"
 	"path/filepath"
+	"runtime"
 	"strings"
 
 	"github.com/Sakurame1/frp-manager/conf"
@@ -90,7 +92,13 @@ func autoJoinNode(cfg conf.Config, args CommonArgs, role defs.AppRole) (conf.Con
 		}
 	}
 	args.ApiUrl, args.RpcUrl = &cfg.Client.APIUrl, &cfg.Client.RPCUrl
-	dir, err := os.UserConfigDir()
+	dir, err := nodeConfigDir(runtime.GOOS, os.UserConfigDir, func() (string, error) {
+		account, err := user.Current()
+		if err != nil {
+			return "", err
+		}
+		return account.HomeDir, nil
+	})
 	if err != nil {
 		return cfg, err
 	}
@@ -177,4 +185,20 @@ func autoJoinNode(cfg conf.Config, args CommonArgs, role defs.AppRole) (conf.Con
 	}
 	cfg.Client.ID, cfg.Client.Secret = identity.ID, identity.Secret
 	return cfg, nil
+}
+
+// launchd system jobs may omit HOME. Resolve the executing account, never a guessed login user.
+func nodeConfigDir(goos string, configured func() (string, error), home func() (string, error)) (string, error) {
+	dir, err := configured()
+	if err == nil {
+		return dir, nil
+	}
+	if goos != "darwin" {
+		return "", err
+	}
+	root, lookupErr := home()
+	if lookupErr != nil || !filepath.IsAbs(root) {
+		return "", fmt.Errorf("resolve device identity directory: %w", err)
+	}
+	return filepath.Join(root, "Library", "Application Support"), nil
 }
