@@ -84,6 +84,11 @@ func (q *serverQuery) ValidateServerSecret(serverID string, secret string) (*mod
 		return nil, fmt.Errorf("invalid request")
 	}
 	db := q.ctx.GetApp().GetDBManager().GetDefaultDB()
+	resolvedID, resolveErr := models.ResolveNodeID(db, "server", serverID)
+	if resolveErr != nil {
+		return nil, resolveErr
+	}
+	serverID = resolvedID
 	c := &models.Server{}
 	err := db.
 		Where(&models.Server{ServerEntity: &models.ServerEntity{
@@ -104,6 +109,11 @@ func (q *serverQuery) AdminGetServerByServerID(serverID string) (*models.ServerE
 		return nil, fmt.Errorf("invalid server id")
 	}
 	db := q.ctx.GetApp().GetDBManager().GetDefaultDB()
+	resolvedID, resolveErr := models.ResolveNodeID(db, "server", serverID)
+	if resolveErr != nil {
+		return nil, resolveErr
+	}
+	serverID = resolvedID
 	c := &models.Server{}
 	err := db.
 		Where(&models.Server{ServerEntity: &models.ServerEntity{

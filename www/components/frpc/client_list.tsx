@@ -1,3 +1,5 @@
+import { useRouter } from 'next/router'
+import { getNodeOverview } from '@/api/platform'
 import { getResourceOwners } from '@/api/resource-owners'
 import { OwnerFilter } from '@/components/base/owner-filter'
 import { collectPages } from '@/lib/collect-pages'
@@ -36,6 +38,10 @@ export interface ClientListProps {
 
 export const ClientList: React.FC<ClientListProps> = ({ Clients, Keyword, TriggerRefetch }) => {
   const [ownerFilter, setOwnerFilter] = React.useState('all')
+  const router = useRouter()
+  const pendingOnly = router.query.pending === '1'
+  const pendingQuery = useQuery({ queryKey: ['nodeOverview'], queryFn: getNodeOverview, enabled: pendingOnly, refetchInterval: 15000 })
+  const pendingIDs = React.useMemo(() => new Set(pendingQuery.data?.clients.pendingIds || []), [pendingQuery.data])
   const [sorting, setSorting] = React.useState<SortingState>([])
   const [columnFilters, setColumnFilters] = React.useState<ColumnFiltersState>([])
   const [configFilter, setConfigFilter] = React.useState<'all' | 'valid' | 'invalid'>('all')
@@ -54,7 +60,7 @@ export const ClientList: React.FC<ClientListProps> = ({ Clients, Keyword, Trigge
   })
 
   const ownersQuery = useQuery({ queryKey: ['resourceOwners', 'client', TriggerRefetch, globalRefetchTrigger], queryFn: () => getResourceOwners('client'), refetchInterval: 30_000 })
-  const advancedFilter = ownerFilter !== 'all' || configFilter !== 'all' || runtimeFilter !== 'all' || nodeFilter !== 'all'
+  const advancedFilter = pendingOnly || ownerFilter !== 'all' || configFilter !== 'all' || runtimeFilter !== 'all' || nodeFilter !== 'all'
   const fetchDataOptions = {
     advancedFilter,
     pageIndex: advancedFilter ? 0 : pageIndex,
@@ -139,14 +145,15 @@ export const ClientList: React.FC<ClientListProps> = ({ Clients, Keyword, Trigge
         } as ClientTableSchema
       })
       .filter((row) => ownerFilter === 'all' || String(ownersQuery.data?.resources[row.id]) === ownerFilter)
+      .filter((row) => !pendingOnly || pendingIDs.has(row.id))
       .filter((row) => configFilter === 'all' || row.status === configFilter)
       .filter((row) => runtimeFilter === 'all' || row.runtimeStatus === runtimeFilter)
       .filter((row) => nodeFilter === 'all' || (nodeFilter === 'ephemeral' ? row.ephemeral : !row.ephemeral))
-  }, [allClients, statusQuery.data, configFilter, runtimeFilter, nodeFilter, ownerFilter, ownersQuery.data])
+  }, [allClients, statusQuery.data, pendingOnly, pendingIDs, configFilter, runtimeFilter, nodeFilter, ownerFilter, ownersQuery.data])
 
   React.useEffect(() => {
     setPagination((current) => ({ ...current, pageIndex: 0 }))
-  }, [Keyword, configFilter, runtimeFilter, nodeFilter, ownerFilter])
+  }, [Keyword, pendingOnly, configFilter, runtimeFilter, nodeFilter, ownerFilter])
 
   const table = useReactTable({
     data: rows,
@@ -179,10 +186,11 @@ export const ClientList: React.FC<ClientListProps> = ({ Clients, Keyword, Trigge
   }, [advancedFilter, dataQuery.data, dataQuery.isPlaceholderData, pageIndex, pageSize])
   return (
     <DataTable
-      loading={dataQuery.isPending}
-      error={dataQuery.error?.message}
+      loading={dataQuery.isPending || (pendingOnly && pendingQuery.isPending)}
+      error={dataQuery.error?.message || (pendingOnly ? pendingQuery.error?.message : undefined)}
       onRetry={() => {
         void dataQuery.refetch()
+        if (pendingOnly) void pendingQuery.refetch()
         void statusQuery.refetch()
       }}
       emptyMessage={
@@ -194,6 +202,7 @@ export const ClientList: React.FC<ClientListProps> = ({ Clients, Keyword, Trigge
       columns={clientColumnsDef}
       toolbar={
         <div className="flex flex-wrap items-center gap-2">
+          <Button variant={pendingOnly ? 'default' : 'outline'} onClick={() => { const query = { ...router.query }; if (pendingOnly) delete query.pending; else query.pending = '1'; void router.replace({ pathname: router.pathname, query }, undefined, { shallow: true }) }}>{pendingOnly ? '待处理 · 点击查看全部' : '仅看待处理'}</Button>
           <OwnerFilter value={ownerFilter} onChange={setOwnerFilter} data={ownersQuery.data} loading={ownersQuery.isPending} error={ownersQuery.error} retry={() => { void ownersQuery.refetch() }} />
           <span className="text-xs text-muted-foreground">
             共 {dataQuery.data?.total ?? 0} 个节点 · {advancedFilter ? '全局筛选' : '按页加载 · 排序作用于当前页'}
@@ -236,6 +245,7 @@ export const ClientList: React.FC<ClientListProps> = ({ Clients, Keyword, Trigge
               setRuntimeFilter('all')
               setNodeFilter('all')
               setSorting([])
+              if (pendingOnly) { const query = { ...router.query }; delete query.pending; void router.replace({ pathname: router.pathname, query }, undefined, { shallow: true }) }
             }}
           >
             重置

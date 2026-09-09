@@ -1,3 +1,4 @@
+import { RenameNodeDialog } from '../base/rename-node-dialog'
 import { ColumnDef, Table, TableMeta } from '@tanstack/react-table'
 import { Eye, MoreHorizontal } from 'lucide-react'
 import {
@@ -311,6 +312,7 @@ export interface ClientItemProps {
 
 export const ClientActions: React.FC<ClientItemProps> = ({ client, table }) => {
   const { t } = useTranslation()
+  const [renameOpen, setRenameOpen] = React.useState(false)
   const router = useRouter()
   const platformInfo = useStore($platformInfo)
   const userInfo = useStore($userInfo)
@@ -370,6 +372,7 @@ export const ClientActions: React.FC<ClientItemProps> = ({ client, table }) => {
 
   return (
     <>
+      <RenameNodeDialog kind="client" id={client.id} open={renameOpen} onOpenChange={setRenameOpen} />
       <ClientUpgradeDialog
         open={upgradeDialogOpen}
         onOpenChange={setUpgradeDialogOpen}
@@ -391,6 +394,7 @@ export const ClientActions: React.FC<ClientItemProps> = ({ client, table }) => {
         </DropdownMenuTrigger>
         <DropdownMenuContent align="end">
           <DropdownMenuLabel>{t('client.actions_menu.title')}</DropdownMenuLabel>
+          <DropdownMenuItem onSelect={() => setRenameOpen(true)}>修改 ID</DropdownMenuItem>
 
           <DropdownMenuItem
             onClick={async () => {

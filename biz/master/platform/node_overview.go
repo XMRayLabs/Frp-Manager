@@ -18,13 +18,14 @@ import (
 )
 
 type nodeOverview struct {
-	Total        int `json:"total"`
-	Online       int `json:"online"`
-	Pending      int `json:"pending"`
-	Unconfigured int `json:"unconfigured"`
-	Invalid      int `json:"invalid"`
-	Unavailable  int `json:"unavailable"`
-	Upgrade      int `json:"upgrade"`
+	PendingIDs   []string `json:"pendingIds"`
+	Total        int      `json:"total"`
+	Online       int      `json:"online"`
+	Pending      int      `json:"pending"`
+	Unconfigured int      `json:"unconfigured"`
+	Invalid      int      `json:"invalid"`
+	Unavailable  int      `json:"unavailable"`
+	Upgrade      int      `json:"upgrade"`
 }
 
 type overviewResponse struct {
@@ -151,6 +152,9 @@ func getNodeOverview(ctx *app.Context) (*overviewResponse, error) {
 			serverOnline[row.ServerID] = online
 			serverBad[row.ServerID] = missing || invalid || (online && unhealthy)
 			result.Servers.add(online, missing, invalid, online && unhealthy, upgrade)
+			if missing || invalid || (online && unhealthy) || upgrade {
+				result.Servers.PendingIDs = append(result.Servers.PendingIDs, row.ServerID)
+			}
 		}
 		if len(rows) < 500 {
 			break
@@ -272,6 +276,9 @@ func getNodeOverview(ctx *app.Context) (*overviewResponse, error) {
 	for id, row := range clients {
 		online, unhealthy, upgrade := nodeConnection(ctx, id, defs.CliTypeClient)
 		result.Clients.add(online, !configured[id], invalid[id], online && !row.Stopped && (unhealthy || failed[id]), upgrade)
+		if !configured[id] || invalid[id] || (online && !row.Stopped && (unhealthy || failed[id])) || upgrade {
+			result.Clients.PendingIDs = append(result.Clients.PendingIDs, id)
+		}
 	}
 	return result, nil
 }

@@ -2,6 +2,8 @@ package server
 
 import (
 	"fmt"
+	"google.golang.org/protobuf/proto"
+	"google.golang.org/protobuf/reflect/protoreflect"
 
 	"github.com/Sakurame1/frp-manager/models"
 	"github.com/Sakurame1/frp-manager/services/app"
@@ -31,5 +33,12 @@ func ValidateServerRequest(ctx *app.Context, req ValidateableServerRequest) (*mo
 		return nil, err
 	}
 
+	if message, ok := req.(proto.Message); ok {
+		reflection := message.ProtoReflect()
+		field := reflection.Descriptor().Fields().ByName("server_id")
+		if field != nil {
+			reflection.Set(field, protoreflect.ValueOfString(cli.ServerID))
+		}
+	}
 	return cli, nil
 }

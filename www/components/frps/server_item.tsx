@@ -1,3 +1,4 @@
+import { RenameNodeDialog } from '../base/rename-node-dialog'
 import { ColumnDef, Table } from '@tanstack/react-table'
 import { Eye, MoreHorizontal } from 'lucide-react'
 import {
@@ -277,6 +278,7 @@ export interface ServerItemProps {
 
 export const ServerActions: React.FC<ServerItemProps> = ({ server, table }) => {
   const { t } = useTranslation()
+  const [renameOpen, setRenameOpen] = React.useState(false)
   const router = useRouter()
   const platformInfo = useStore($platformInfo)
   const userInfo = useStore($userInfo)
@@ -306,6 +308,8 @@ export const ServerActions: React.FC<ServerItemProps> = ({ server, table }) => {
   }
 
   return (
+    <>
+      <RenameNodeDialog kind="server" id={server.id} open={renameOpen} onOpenChange={setRenameOpen} />
     <Dialog>
       <DropdownMenu>
         <DropdownMenuTrigger asChild>
@@ -316,6 +320,7 @@ export const ServerActions: React.FC<ServerItemProps> = ({ server, table }) => {
         </DropdownMenuTrigger>
         <DropdownMenuContent align="end">
           <DropdownMenuLabel>{t('server.actions_menu.title')}</DropdownMenuLabel>
+          <DropdownMenuItem onSelect={() => setRenameOpen(true)}>修改 ID</DropdownMenuItem>
 
           <DropdownMenuSeparator />
           {isAdmin && (
@@ -384,5 +389,6 @@ export const ServerActions: React.FC<ServerItemProps> = ({ server, table }) => {
         </DialogFooter>
       </DialogContent>
     </Dialog>
+    </>
   )
 }

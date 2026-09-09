@@ -22,6 +22,9 @@ func (dbm *dbManagerImpl) Init() {
 				logger.Logger(ctx).WithError(err).Infof("cannot drop index [%s], your db is updated", "idx_client_id_host_port")
 			}
 
+			if err := db.AutoMigrate(&NodeAlias{}); err != nil {
+				logger.Logger(ctx).WithError(err).Fatal("cannot init node aliases")
+			}
 			if err := db.AutoMigrate(&Client{}); err != nil {
 				logger.Logger(ctx).WithError(err).Fatalf("cannot init db table [%s]", (&Client{}).TableName())
 			}

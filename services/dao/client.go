@@ -47,6 +47,11 @@ func (q *clientQuery) ValidateClientSecret(clientID, clientSecret string) (*mode
 		return nil, fmt.Errorf("invalid client id or client secret")
 	}
 	db := q.ctx.GetApp().GetDBManager().GetDefaultDB()
+	resolvedID, resolveErr := models.ResolveNodeID(db, "client", clientID)
+	if resolveErr != nil {
+		return nil, resolveErr
+	}
+	clientID = resolvedID
 	c := &models.Client{}
 	err := db.
 		Where(&models.Client{ClientEntity: &models.ClientEntity{
@@ -67,6 +72,11 @@ func (q *clientQuery) AdminGetClientByClientID(clientID string) (*models.Client,
 		return nil, fmt.Errorf("invalid client id")
 	}
 	db := q.ctx.GetApp().GetDBManager().GetDefaultDB()
+	resolvedID, resolveErr := models.ResolveNodeID(db, "client", clientID)
+	if resolveErr != nil {
+		return nil, resolveErr
+	}
+	clientID = resolvedID
 	c := &models.Client{}
 	err := db.
 		Where(&models.Client{ClientEntity: &models.ClientEntity{

@@ -186,6 +186,7 @@ func (s *server) ServerSend(sender pb.Master_ServerSendServer) error {
 				return fmt.Errorf("rpc auth token is invalid")
 			}
 			var secret string
+			canonicalID := req.GetClientId()
 			switch req.GetEvent() {
 			case pb.Event_EVENT_REGISTER_CLIENT:
 				cli, err := dao.NewQuery(ctx).AdminGetClientByClientID(req.GetClientId())
@@ -197,6 +198,7 @@ func (s *server) ServerSend(sender pb.Master_ServerSendServer) error {
 					})
 					return err
 				}
+				canonicalID = cli.ClientID
 				secret = cli.ConnectSecret
 				cliType = defs.CliTypeClient
 			case pb.Event_EVENT_REGISTER_SERVER:
@@ -209,6 +211,7 @@ func (s *server) ServerSend(sender pb.Master_ServerSendServer) error {
 					})
 					return err
 				}
+				canonicalID = srv.ServerID
 				secret = srv.ConnectSecret
 				cliType = defs.CliTypeServer
 			}
@@ -223,7 +226,7 @@ func (s *server) ServerSend(sender pb.Master_ServerSendServer) error {
 			}
 
 			if cliType == defs.CliTypeClient {
-				if err := dao.NewMutation(ctx).AdminUpdateClientLastSeen(req.GetClientId()); err != nil {
+				if err := dao.NewMutation(ctx).AdminUpdateClientLastSeen(canonicalID); err != nil {
 					logger.Logger(ctx).Errorf("cannot update client last seen, %s id: [%s]", req.GetEvent().String(), req.GetClientId())
 				}
 			}
@@ -241,6 +244,9 @@ func (s *server) ServerSend(sender pb.Master_ServerSendServer) error {
 				SessionId: req.GetClientId(),
 			}); err != nil {
 				return err
+			}
+			if canonicalID != req.GetClientId() {
+				s.appInstance.GetClientsManager().Rename(req.GetClientId(), canonicalID)
 			}
 			connector := s.appInstance.GetClientsManager().Set(req.GetClientId(), cliType, sender, clientVersion)
 			done = rpc.Recv(s.appInstance, req.GetClientId())

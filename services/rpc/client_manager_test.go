@@ -97,3 +97,25 @@ func TestCallClientHonorsContextCancellation(t *testing.T) {
 		t.Fatalf("expected pending calls to be cleaned up, got %d", pending)
 	}
 }
+
+func TestRenameRetainsStreamAndReconnectCleanup(t *testing.T) {
+	manager := NewClientsManager()
+	old := manager.Set("a", defs.CliTypeClient, &fakeServerSendStream{ctx: context.Background()}, &pb.ClientVersion{GitVersion: "1.0.3"})
+	manager.Rename("a", "b")
+	manager.Rename("b", "c")
+	if manager.Get("c") != old || manager.Get("a") != old {
+		t.Fatal("rename replaced stream")
+	}
+	if snapshot, ok := manager.GetRuntimeSnapshot("c"); !ok || snapshot.Version.GetGitVersion() != "1.0.3" {
+		t.Fatal("lost snapshot")
+	}
+	replacement := manager.Set("a", defs.CliTypeClient, &fakeServerSendStream{ctx: context.Background()}, nil)
+	manager.RemoveIfCurrent("a", old)
+	if manager.Get("c") != replacement {
+		t.Fatal("old stream cleanup removed new connection")
+	}
+	manager.RemoveIfCurrent("c", replacement)
+	if manager.Get("a") != nil {
+		t.Fatal("stale alias connection")
+	}
+}

@@ -51,7 +51,7 @@ func RPCPullConfig(ctx *app.Context, req *pb.PullClientConfigReq) (*pb.PullClien
 	return &pb.PullClientConfigResp{
 		Client: &pb.Client{
 			Id:             lo.ToPtr(cli.ClientID),
-			ServerId:       lo.ToPtr(cli.ServerID),
+			ServerId:       lo.ToPtr(models.RuntimeNodeID(ctx.GetApp().GetDBManager().GetDefaultDB(), "server", cli.ServerID)),
 			Config:         lo.ToPtr(string(cli.ConfigContent)),
 			OriginClientId: lo.ToPtr(cli.OriginClientID),
 			ClientIds:      clientIDs,

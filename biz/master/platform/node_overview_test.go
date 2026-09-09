@@ -99,6 +99,14 @@ func TestOverviewUsesVisiblePhysicalNodesAndDoesNotWaitForRPC(t *testing.T) {
 	if time.Since(start) > time.Second {
 		t.Fatal("overview blocked on runtime probes")
 	}
+	if len(result.Clients.PendingIDs) != result.Clients.Pending || len(result.Servers.PendingIDs) != result.Servers.Pending {
+		t.Fatal("pending membership differs from counts")
+	}
+	for _, id := range result.Clients.PendingIDs {
+		if id != "new" && id != "partial" {
+			t.Fatalf("unexpected pending ID %s", id)
+		}
+	}
 	if result.Clients.Total != 4 || result.Clients.Online != 1 || result.Clients.Pending != 2 || result.Clients.Unconfigured != 2 {
 		t.Fatalf("clients: %+v", result.Clients)
 	}

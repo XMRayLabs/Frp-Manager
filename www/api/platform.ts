@@ -28,6 +28,7 @@ export const getClientsStatus = async (req: GetClientsStatusRequest): Promise<Ge
 }
 
 export interface NodeOverview {
+  pendingIds?: string[] | null
   total: number
   online: number
   pending: number

@@ -73,6 +73,7 @@ func ConfigureRouter(appInstance app.Application, router *gin.Engine) {
 		}
 		clientRouter := v1.Group("/client")
 		{
+			clientRouter.POST("/rename", platform.RenameNode(appInstance, "client"))
 			clientRouter.POST("/get", app.Wrapper(appInstance, client.GetClientHandler))
 			clientRouter.POST("/init", app.Wrapper(appInstance, client.InitClientHandler))
 			clientRouter.POST("/delete", app.Wrapper(appInstance, client.DeleteClientHandler))
@@ -82,6 +83,7 @@ func ConfigureRouter(appInstance app.Application, router *gin.Engine) {
 		}
 		serverRouter := v1.Group("/server")
 		{
+			serverRouter.POST("/rename", platform.RenameNode(appInstance, "server"))
 			serverRouter.POST("/get", app.Wrapper(appInstance, server.GetServerHandler))
 			serverRouter.POST("/init", app.Wrapper(appInstance, server.InitServerHandler))
 			serverRouter.POST("/delete", app.Wrapper(appInstance, server.DeleteServerHandler))

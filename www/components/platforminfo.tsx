@@ -21,8 +21,8 @@ export default function PlatformInfo() {
   const metrics = [
     { title: '在线客户端', value: ratio(info?.clients), icon: MonitorSmartphone, href: '/clients', detail: '在线 / 总量' },
     { title: '在线服务端', value: ratio(info?.servers), icon: Server, href: '/servers', detail: '在线 / 总量' },
-    { title: '待处理客户端', value: info?.clients.pending, icon: CircleDashed, href: '/clients', detail: pendingDetail(info?.clients) },
-    { title: '待处理服务端', value: info?.servers.pending, icon: CircleDashed, href: '/servers', detail: pendingDetail(info?.servers) },
+    { title: '待处理客户端', value: info?.clients.pending, icon: CircleDashed, href: '/clients?pending=1', detail: pendingDetail(info?.clients) },
+    { title: '待处理服务端', value: info?.servers.pending, icon: CircleDashed, href: '/servers?pending=1', detail: pendingDetail(info?.servers) },
   ]
   return (
     <section aria-label="节点概览">

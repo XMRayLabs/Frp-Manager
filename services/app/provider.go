@@ -78,6 +78,7 @@ type DBManager interface {
 }
 
 type ClientsManager interface {
+	Rename(oldID, newID string)
 	Get(cliID string) *defs.Connector
 	Set(cliID, clientType string, sender pb.Master_ServerSendServer, version *pb.ClientVersion) *defs.Connector
 	Remove(cliID string)

@@ -6,6 +6,7 @@ import (
 	"io"
 
 	"github.com/Sakurame1/frp-manager/common"
+	"github.com/Sakurame1/frp-manager/models"
 	"github.com/Sakurame1/frp-manager/pb"
 	"github.com/Sakurame1/frp-manager/services/app"
 	"github.com/Sakurame1/frp-manager/utils/logger"
@@ -35,7 +36,20 @@ func CallClient(ctx *app.Context, clientID string, event pb.Event, msg proto.Mes
 		return nil, fmt.Errorf("cannot get client, id: [%s]", clientID)
 	}
 
-	data, err := proto.Marshal(msg)
+	// Old kernels index live FRP instances by their original IDs.
+	wireMessage := proto.Clone(msg)
+	if wireMessage != nil {
+		rewriteRuntimeIDs(wireMessage.ProtoReflect(), func(kind, id string) string {
+			if kind == "client" && id == clientID {
+				return sender.CliID
+			}
+			if kind == "server" {
+				return models.RuntimeNodeID(ctx.GetApp().GetDBManager().GetDefaultDB(), kind, id)
+			}
+			return id
+		})
+	}
+	data, err := proto.Marshal(wireMessage)
 	if err != nil {
 		logger.Logger(context.Background()).WithError(err).Errorf("cannot marshal")
 		return nil, err
@@ -111,4 +125,38 @@ func Recv(appInstance app.Application, clientID string) chan bool {
 		}
 	}()
 	return done
+}
+
+func rewriteRuntimeIDs(message protoreflect.Message, rewrite func(string, string) string) {
+	message.Range(func(field protoreflect.FieldDescriptor, value protoreflect.Value) bool {
+		if field.IsMap() {
+			return true
+		}
+		if field.IsList() {
+			if field.Kind() == protoreflect.MessageKind {
+				list := value.List()
+				for i := 0; i < list.Len(); i++ {
+					rewriteRuntimeIDs(list.Get(i).Message(), rewrite)
+				}
+			}
+			return true
+		}
+		if field.Kind() == protoreflect.MessageKind {
+			rewriteRuntimeIDs(value.Message(), rewrite)
+			return true
+		}
+		if field.Kind() == protoreflect.StringKind {
+			kind := ""
+			if field.Name() == "client_id" {
+				kind = "client"
+			}
+			if field.Name() == "server_id" {
+				kind = "server"
+			}
+			if kind != "" {
+				message.Set(field, protoreflect.ValueOfString(rewrite(kind, value.String())))
+			}
+		}
+		return true
+	})
 }

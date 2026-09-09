@@ -1,3 +1,5 @@
+import { useRouter } from 'next/router'
+import { getNodeOverview } from '@/api/platform'
 import { collectPages } from '@/lib/collect-pages'
 import { Server } from '@/lib/pb/common'
 import { ServerTableSchema, columns as serverColumnsDef } from './server_item'
@@ -32,6 +34,10 @@ export interface ServerListProps {
 }
 
 export const ServerList: React.FC<ServerListProps> = ({ Servers, Keyword, TriggerRefetch }) => {
+  const router = useRouter()
+  const pendingOnly = router.query.pending === '1'
+  const pendingQuery = useQuery({ queryKey: ['nodeOverview'], queryFn: getNodeOverview, enabled: pendingOnly, refetchInterval: 15000 })
+  const pendingIDs = React.useMemo(() => new Set(pendingQuery.data?.servers.pendingIds || []), [pendingQuery.data])
   const [sorting, setSorting] = React.useState<SortingState>([])
   const [columnFilters, setColumnFilters] = React.useState<ColumnFiltersState>([])
   const [configFilter, setConfigFilter] = React.useState<'all' | 'valid' | 'invalid'>('all')
@@ -47,7 +53,7 @@ export const ServerList: React.FC<ServerListProps> = ({ Servers, Keyword, Trigge
     pageSize: 10,
   })
 
-  const advancedFilter = configFilter !== 'all' || runtimeFilter !== 'all'
+  const advancedFilter = pendingOnly || configFilter !== 'all' || runtimeFilter !== 'all'
   const fetchDataOptions = {
     advancedFilter,
     pageIndex: advancedFilter ? 0 : pageIndex,
@@ -129,13 +135,14 @@ export const ServerList: React.FC<ServerListProps> = ({ Servers, Keyword, Trigge
           frpsUrls: server.frpsUrls || [],
         } as ServerTableSchema
       })
+      .filter((row) => !pendingOnly || pendingIDs.has(row.id))
       .filter((row) => configFilter === 'all' || row.status === configFilter)
       .filter((row) => runtimeFilter === 'all' || row.runtimeStatus === runtimeFilter)
-  }, [allServers, statusQuery.data, configFilter, runtimeFilter])
+  }, [allServers, statusQuery.data, pendingOnly, pendingIDs, configFilter, runtimeFilter])
 
   React.useEffect(() => {
     setPagination((current) => ({ ...current, pageIndex: 0 }))
-  }, [Keyword, configFilter, runtimeFilter])
+  }, [Keyword, pendingOnly, configFilter, runtimeFilter])
 
   const table = useReactTable({
     data: rows,
@@ -168,10 +175,11 @@ export const ServerList: React.FC<ServerListProps> = ({ Servers, Keyword, Trigge
   }, [advancedFilter, dataQuery.data, dataQuery.isPlaceholderData, pageIndex, pageSize])
   return (
     <DataTable
-      loading={dataQuery.isPending}
-      error={dataQuery.error?.message}
+      loading={dataQuery.isPending || (pendingOnly && pendingQuery.isPending)}
+      error={dataQuery.error?.message || (pendingOnly ? pendingQuery.error?.message : undefined)}
       onRetry={() => {
         void dataQuery.refetch()
+        if (pendingOnly) void pendingQuery.refetch()
         void statusQuery.refetch()
       }}
       emptyMessage={
@@ -183,6 +191,7 @@ export const ServerList: React.FC<ServerListProps> = ({ Servers, Keyword, Trigge
       columns={serverColumnsDef}
       toolbar={
         <div className="flex flex-wrap items-center gap-2">
+          <Button variant={pendingOnly ? 'default' : 'outline'} onClick={() => { const query = { ...router.query }; if (pendingOnly) delete query.pending; else query.pending = '1'; void router.replace({ pathname: router.pathname, query }, undefined, { shallow: true }) }}>{pendingOnly ? '待处理 · 点击查看全部' : '仅看待处理'}</Button>
           <span className="text-xs text-muted-foreground">
             共 {dataQuery.data?.total ?? 0} 个节点 · {advancedFilter ? '全局筛选' : '按页加载 · 排序作用于当前页'}
           </span>
@@ -213,6 +222,7 @@ export const ServerList: React.FC<ServerListProps> = ({ Servers, Keyword, Trigge
               setConfigFilter('all')
               setRuntimeFilter('all')
               setSorting([])
+              if (pendingOnly) { const query = { ...router.query }; delete query.pending; void router.replace({ pathname: router.pathname, query }, undefined, { shallow: true }) }
             }}
           >
             重置

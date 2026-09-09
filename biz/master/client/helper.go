@@ -2,6 +2,8 @@ package client
 
 import (
 	"fmt"
+	"google.golang.org/protobuf/proto"
+	"google.golang.org/protobuf/reflect/protoreflect"
 	"net/url"
 
 	"github.com/Sakurame1/frp-manager/common"
@@ -37,6 +39,13 @@ func ValidateClientRequest(ctx *app.Context, req ValidateableClientRequest) (*mo
 		return nil, err
 	}
 
+	if message, ok := req.(proto.Message); ok {
+		reflection := message.ProtoReflect()
+		field := reflection.Descriptor().Fields().ByName("client_id")
+		if field != nil {
+			reflection.Set(field, protoreflect.ValueOfString(cli.ClientID))
+		}
+	}
 	return cli, nil
 }
 
