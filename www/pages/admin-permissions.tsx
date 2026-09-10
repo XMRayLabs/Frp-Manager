@@ -1,3 +1,4 @@
+import { organization, LanguageGroup } from '@/api/organization'
 import { BatchCreateUsersDialog } from '@/components/user/batch-create-users'
 import { Providers } from '@/components/providers'
 import { RootLayout } from '@/components/layout'
@@ -73,6 +74,9 @@ function AdminPermissionPanel() {
   const [selectedUserID, setSelectedUserID] = useState<number>()
   const [registerEnabled, setRegisterEnabled] = useState(false)
   const [inviteRequired, setInviteRequired] = useState(true)
+  const [languageGroups,setLanguageGroups]=useState<LanguageGroup[]>([])
+  const [inviteGroup,setInviteGroup]=useState('')
+  useEffect(()=>{if(userInfo?.role==='admin')organization<{groups:LanguageGroup[]}>('groups').then(d=>setLanguageGroups(d.groups)).catch(e=>toast.error(String(e)))},[userInfo?.role])
   const [maxUses, setMaxUses] = useState(1)
   const [days, setDays] = useState(7)
   const [comment, setComment] = useState('')
@@ -193,7 +197,8 @@ function AdminPermissionPanel() {
 
   const submitInvite = async () => {
     const expiresAt = days > 0 ? Math.floor(Date.now() / 1000) + days * 86400 : undefined
-    await createInvite({ max_uses: maxUses, expires_at: expiresAt, comment })
+    if (!inviteGroup) { toast.error('请选择所属语系'); return }
+    await createInvite({ language_group_id:inviteGroup, max_uses: maxUses, expires_at: expiresAt, comment })
     setComment('')
     await reloadRegistration()
     toast.success('邀请码已创建')
@@ -381,6 +386,7 @@ function AdminPermissionPanel() {
             <CardContent className="space-y-4">
               <div className="grid gap-3 md:grid-cols-[160px_160px_1fr_auto]">
                 <Field label="激活次数" hint="这个邀请码最多可注册几个账号。">
+                  <select aria-label="邀请码所属语系" className="rounded border bg-background p-2" value={inviteGroup} onChange={e=>setInviteGroup(e.target.value)}><option value="">请选择所属语系</option>{languageGroups.map(g=><option key={g.id} value={g.id}>{g.name}</option>)}</select>
                   <Input type="number" min={1} value={maxUses} onChange={(e) => setMaxUses(Number(e.target.value))} placeholder="例如 1" />
                 </Field>
                 <Field label="有效天数" hint="0 表示长期有效。">

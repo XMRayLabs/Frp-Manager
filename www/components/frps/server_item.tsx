@@ -333,6 +333,7 @@ export const ServerActions: React.FC<ServerItemProps> = ({ server, table }) => {
             </DropdownMenuItem>
           )}
           <DropdownMenuItem
+            disabled={!isAdmin}
             onClick={() => {
               try {
                 if (platformInfo) {

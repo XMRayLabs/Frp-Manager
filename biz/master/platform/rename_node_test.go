@@ -19,7 +19,7 @@ func renameFixture(t *testing.T) (*app.Context, *gorm.DB) {
 	if err != nil {
 		t.Fatal(err)
 	}
-	if err = db.AutoMigrate(&models.NodeAlias{}, &models.User{}, &models.Client{}, &models.Server{}, &models.ProxyConfig{}, &models.ProxyStats{}, &models.HistoryProxyStats{}); err != nil {
+	if err = db.AutoMigrate(&models.NodeAlias{}, &models.User{}, &models.Client{}, &models.Server{}, &models.ProxyConfig{}, &models.ProxyStats{}, &models.HistoryProxyStats{}, &models.Endpoint{}); err != nil {
 		t.Fatal(err)
 	}
 	instance := app.NewApp()

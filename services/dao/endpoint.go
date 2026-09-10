@@ -35,6 +35,9 @@ func (m *endpointMutation) CreateEndpoint(userInfo models.UserInfo, endpoint *mo
 		return fmt.Errorf("invalid endpoint host or port")
 	}
 	// scope via parent wireguard/client
+	if err := CanManageClient(m.ctx, userInfo, endpoint.ClientID); err != nil {
+		return err
+	}
 	db := m.ctx.GetApp().GetDBManager().GetDefaultDB()
 	return db.Create(&models.Endpoint{EndpointEntity: endpoint}).Error
 }
@@ -42,6 +45,12 @@ func (m *endpointMutation) CreateEndpoint(userInfo models.UserInfo, endpoint *mo
 func (m *endpointMutation) UpdateEndpoint(userInfo models.UserInfo, id uint, endpoint *models.EndpointEntity) error {
 	if id == 0 || endpoint == nil {
 		return fmt.Errorf("invalid endpoint id or entity")
+	}
+	if err := CanManageClient(m.ctx, userInfo, endpoint.ClientID); err != nil {
+		return err
+	}
+	if _, err := NewQuery(m.ctx).GetEndpointByID(userInfo, id); err != nil {
+		return err
 	}
 	db := m.ctx.GetApp().GetDBManager().GetDefaultDB()
 	return db.Where(&models.Endpoint{
@@ -53,6 +62,9 @@ func (m *endpointMutation) DeleteEndpoint(userInfo models.UserInfo, id uint) err
 	if id == 0 {
 		return fmt.Errorf("invalid endpoint id")
 	}
+	if _, err := NewQuery(m.ctx).GetEndpointByID(userInfo, id); err != nil {
+		return err
+	}
 	db := m.ctx.GetApp().GetDBManager().GetDefaultDB()
 	return db.Unscoped().Where(&models.Endpoint{Model: gorm.Model{ID: id}}).Delete(&models.Endpoint{}).Error
 }
@@ -62,6 +74,7 @@ func (q *endpointQuery) GetEndpointByID(userInfo models.UserInfo, id uint) (*mod
 		return nil, fmt.Errorf("invalid endpoint id")
 	}
 	db := q.ctx.GetApp().GetDBManager().GetDefaultDB()
+	db = endpointScope(db, userInfo)
 	var e models.Endpoint
 	if err := db.Where(&models.Endpoint{Model: gorm.Model{ID: id}}).First(&e).Error; err != nil {
 		return nil, err
@@ -74,6 +87,7 @@ func (q *endpointQuery) ListEndpoints(userInfo models.UserInfo, page, pageSize i
 		return nil, fmt.Errorf("invalid page or page size")
 	}
 	db := q.ctx.GetApp().GetDBManager().GetDefaultDB()
+	db = endpointScope(db, userInfo)
 	var list []*models.Endpoint
 	offset := (page - 1) * pageSize
 	if err := db.Offset(offset).Limit(pageSize).Find(&list).Error; err != nil {
@@ -85,6 +99,7 @@ func (q *endpointQuery) ListEndpoints(userInfo models.UserInfo, page, pageSize i
 func (q *endpointQuery) CountEndpoints(userInfo models.UserInfo) (int64, error) {
 	var count int64
 	db := q.ctx.GetApp().GetDBManager().GetDefaultDB()
+	db = endpointScope(db, userInfo)
 	if err := db.Model(&models.Endpoint{}).Count(&count).Error; err != nil {
 		return 0, err
 	}
@@ -97,6 +112,7 @@ func (q *endpointQuery) ListEndpointsWithFilters(userInfo models.UserInfo, page,
 		return nil, fmt.Errorf("invalid page or page size")
 	}
 	db := q.ctx.GetApp().GetDBManager().GetDefaultDB()
+	db = endpointScope(db, userInfo)
 
 	// 鑻ユ寚瀹?clientID锛屽厛鏍￠獙褰掑睘
 	if len(clientID) > 0 {
@@ -125,6 +141,7 @@ func (q *endpointQuery) ListEndpointsWithFilters(userInfo models.UserInfo, page,
 
 func (q *endpointQuery) CountEndpointsWithFilters(userInfo models.UserInfo, clientID string, wireguardID uint, keyword string) (int64, error) {
 	db := q.ctx.GetApp().GetDBManager().GetDefaultDB()
+	db = endpointScope(db, userInfo)
 
 	if len(clientID) > 0 {
 		if _, err := newClientQuery(q.queryImpl).GetClientByClientID(userInfo, clientID); err != nil {

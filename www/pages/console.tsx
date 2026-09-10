@@ -105,7 +105,7 @@ export default function ConsolePage() {
     return <ConsoleAccessState title="正在加载账户信息" description="权限信息准备好后再打开控制台。" />
   }
 
-  if (userInfo.role !== 'admin') {
+  if (!userInfo.role) {
     return <ConsoleAccessState title="权限不足" description="普通用户不能打开远程控制台。" />
   }
 

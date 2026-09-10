@@ -28,7 +28,6 @@ func UpdateProxyConfig(c *app.Context, req *pb.UpdateProxyConfigRequest) (*pb.Up
 		serverID = req.GetServerId()
 	)
 	q := dao.NewQuery(c)
-	m := dao.NewMutation(c)
 
 	cli, err := q.GetClientByClientID(userInfo, clientID)
 	if err != nil {
@@ -86,18 +85,8 @@ func UpdateProxyConfig(c *app.Context, req *pb.UpdateProxyConfigRequest) (*pb.Up
 		return nil, err
 	}
 
-	oldProxyCfg, err := q.GetProxyConfigByOriginClientIDAndName(userInfo, clientID, proxyCfg.Name)
-	if err != nil {
-		logger.Logger(c).WithError(err).Errorf("cannot get proxy config, id: [%s]", clientID)
+	if _, err := q.GetProxyConfigByOriginClientIDAndName(userInfo, clientID, proxyCfg.Name); err != nil {
 		return nil, err
-	}
-
-	if m.UpdateProxyConfig(userInfo, &models.ProxyConfig{
-		Model:             oldProxyCfg.Model,
-		ProxyConfigEntity: proxyCfg,
-	}) != nil {
-		logger.Logger(c).Errorf("update proxy config failed, cfg: [%+v]", proxyCfg)
-		return nil, fmt.Errorf("update proxy config failed")
 	}
 
 	// update client config

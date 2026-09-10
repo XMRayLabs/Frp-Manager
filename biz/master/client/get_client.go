@@ -3,7 +3,9 @@ package client
 import (
 	"strings"
 
+	"fmt"
 	"github.com/Sakurame1/frp-manager/common"
+	"github.com/Sakurame1/frp-manager/defs"
 	"github.com/Sakurame1/frp-manager/models"
 	"github.com/Sakurame1/frp-manager/pb"
 	"github.com/Sakurame1/frp-manager/services/app"
@@ -37,6 +39,15 @@ func GetClientHandler(ctx *app.Context, req *pb.GetClientRequest) (*pb.GetClient
 		clientID = app.GlobalClientID(userInfo.GetUserName(), "c", clientID)
 	}
 
+	if token, ok := ctx.Value(defs.TokenKey).(string); ok && strings.HasPrefix(token, models.EnrollmentTokenPrefix) {
+		node, err := dao.NewQuery(ctx).AdminGetClientByClientID(clientID)
+		if err != nil {
+			return nil, err
+		}
+		if node.UserID != userInfo.GetUserID() || node.TenantID != userInfo.GetTenantID() {
+			return nil, fmt.Errorf("enrollment token cannot manage another user's device")
+		}
+	}
 	respCli := &pb.Client{}
 	if len(serverID) == 0 {
 		client, err := dao.NewQuery(ctx).GetClientByClientID(userInfo, clientID)
@@ -90,6 +101,10 @@ func GetClientHandler(ctx *app.Context, req *pb.GetClientRequest) (*pb.GetClient
 		}
 	}
 
+	if dao.CanManageClient(ctx, userInfo, clientID) != nil {
+		respCli.Secret = nil
+		respCli.Config = sharedClientConfig(respCli.GetConfig())
+	}
 	return &pb.GetClientResponse{
 		Status: &pb.Status{Code: pb.RespCode_RESP_CODE_SUCCESS, Message: "ok"},
 		Client: respCli,

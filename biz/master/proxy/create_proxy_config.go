@@ -142,7 +142,7 @@ func CreateProxyConfigWithTypedConfig(c *app.Context, param CreateProxyConfigWit
 		FrpsUrl:  &clientEntity.FrpsUrl,
 	})
 	if err != nil {
-		logger.Logger(c).WithError(err).Warnf("cannot update frpc failed, id: [%s]", clientID)
+		return err
 	}
 
 	if existedProxyCfg != nil && existedProxyCfg.ServerID != serverID {

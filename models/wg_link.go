@@ -15,7 +15,8 @@ type WireGuardLink struct {
 
 	FromWireGuard *WireGuard `json:"from_wireguard,omitempty" gorm:"foreignKey:FromWireGuardID;references:ID;constraint:OnUpdate:CASCADE,OnDelete:CASCADE;"`
 	ToWireGuard   *WireGuard `json:"to_wireguard,omitempty" gorm:"foreignKey:ToWireGuardID;references:ID;constraint:OnUpdate:CASCADE,OnDelete:CASCADE;"`
-	ToEndpoint    *Endpoint  `json:"to_endpoint,omitempty" gorm:"foreignKey:ToEndpointID;references:ID;constraint:OnUpdate:CASCADE,OnDelete:CASCADE;"`
+	// ToEndpointID=0 is valid for reverse/discovered links.
+	ToEndpoint *Endpoint `json:"to_endpoint,omitempty" gorm:"foreignKey:ToEndpointID;references:ID;constraint:-"`
 }
 
 type WireGuardLinkEntity struct {

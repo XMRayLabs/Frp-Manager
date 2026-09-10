@@ -37,6 +37,9 @@ func (m *linkMutation) CreateWireGuardLink(userInfo models.UserInfo, link *model
 	if link.WireGuardLinkEntity == nil {
 		link.WireGuardLinkEntity = &models.WireGuardLinkEntity{}
 	}
+	if err := validateLinkTargets(m.ctx, userInfo, link); err != nil {
+		return err
+	}
 	link.UserId = uint32(userInfo.GetUserID())
 	link.TenantId = uint32(userInfo.GetTenantID())
 	db := m.ctx.GetApp().GetDBManager().GetDefaultDB()
@@ -63,9 +66,17 @@ func (m *linkMutation) UpdateWireGuardLink(userInfo models.UserInfo, id uint, li
 	if link.WireGuardLinkEntity == nil {
 		link.WireGuardLinkEntity = &models.WireGuardLinkEntity{}
 	}
-	link.UserId = uint32(userInfo.GetUserID())
+	existing, err := NewQuery(m.ctx).GetWireGuardLinkByID(userInfo, id)
+	if err != nil {
+		return err
+	}
+	if err := validateLinkTargets(m.ctx, userInfo, link); err != nil {
+		return err
+	}
+	link.UserId = existing.UserId
 	link.TenantId = uint32(userInfo.GetTenantID())
 	db := m.ctx.GetApp().GetDBManager().GetDefaultDB()
+	db = accountScope(db, userInfo)
 	return db.Where(&models.WireGuardLink{
 		Model:               link.Model,
 		WireGuardLinkEntity: &models.WireGuardLinkEntity{UserId: link.UserId, TenantId: link.TenantId},
@@ -77,10 +88,10 @@ func (m *linkMutation) DeleteWireGuardLink(userInfo models.UserInfo, id uint) er
 		return fmt.Errorf("invalid wg link id")
 	}
 	db := m.ctx.GetApp().GetDBManager().GetDefaultDB()
+	db = accountScope(db, userInfo)
 	return db.Unscoped().Where(&models.WireGuardLink{
 		Model: gorm.Model{ID: id},
 		WireGuardLinkEntity: &models.WireGuardLinkEntity{
-			UserId:   uint32(userInfo.GetUserID()),
 			TenantId: uint32(userInfo.GetTenantID()),
 		}}).Delete(&models.WireGuardLink{}).Error
 }
@@ -90,11 +101,11 @@ func (q *linkQuery) ListWireGuardLinksByNetwork(userInfo models.UserInfo, networ
 		return nil, fmt.Errorf("invalid network id")
 	}
 	db := q.ctx.GetApp().GetDBManager().GetDefaultDB()
+	db = accountScope(db, userInfo)
 	var list []*models.WireGuardLink
 	if err := db.Preload("ToEndpoint").Where(&models.WireGuardLink{
 		WireGuardLinkEntity: &models.WireGuardLinkEntity{
 			NetworkID: networkID,
-			UserId:    uint32(userInfo.GetUserID()),
 			TenantId:  uint32(userInfo.GetTenantID()),
 		}}).Find(&list).Error; err != nil {
 		return nil, err
@@ -108,11 +119,11 @@ func (q *linkQuery) GetWireGuardLinkByID(userInfo models.UserInfo, id uint) (*mo
 		return nil, fmt.Errorf("invalid wg link id")
 	}
 	db := q.ctx.GetApp().GetDBManager().GetDefaultDB()
+	db = accountScope(db, userInfo)
 	var m models.WireGuardLink
 	if err := db.Preload("ToEndpoint").Where(&models.WireGuardLink{
 		Model: gorm.Model{ID: id},
 		WireGuardLinkEntity: &models.WireGuardLinkEntity{
-			UserId:   uint32(userInfo.GetUserID()),
 			TenantId: uint32(userInfo.GetTenantID()),
 		},
 	}).First(&m).Error; err != nil {
@@ -126,9 +137,9 @@ func (q *linkQuery) GetWireGuardLinkByClientIDs(userInfo models.UserInfo, fromCl
 		return nil, fmt.Errorf("invalid from client id or to client id")
 	}
 	db := q.ctx.GetApp().GetDBManager().GetDefaultDB()
+	db = accountScope(db, userInfo)
 	var link *models.WireGuardLink
 	if err := db.Preload("ToEndpoint").Where(&models.WireGuardLink{WireGuardLinkEntity: &models.WireGuardLinkEntity{
-		UserId:          uint32(userInfo.GetUserID()),
 		TenantId:        uint32(userInfo.GetTenantID()),
 		FromWireGuardID: fromClientId,
 		ToWireGuardID:   toClientId,
@@ -144,11 +155,11 @@ func (q *linkQuery) ListWireGuardLinksWithFilters(userInfo models.UserInfo, page
 		return nil, fmt.Errorf("invalid page or page size")
 	}
 	db := q.ctx.GetApp().GetDBManager().GetDefaultDB()
+	db = accountScope(db, userInfo)
 	var list []*models.WireGuardLink
 	offset := (page - 1) * pageSize
 
 	base := db.Preload("ToEndpoint").Where(&models.WireGuardLink{WireGuardLinkEntity: &models.WireGuardLinkEntity{
-		UserId:   uint32(userInfo.GetUserID()),
 		TenantId: uint32(userInfo.GetTenantID()),
 	}})
 
@@ -170,10 +181,10 @@ func (q *linkQuery) ListWireGuardLinksWithFilters(userInfo models.UserInfo, page
 // CountWireGuardLinksWithFilters 缁熻鍒嗛〉鏉′欢涓嬬殑鎬绘暟
 func (q *linkQuery) CountWireGuardLinksWithFilters(userInfo models.UserInfo, networkID uint, keyword string) (int64, error) {
 	db := q.ctx.GetApp().GetDBManager().GetDefaultDB()
+	db = accountScope(db, userInfo)
 	var count int64
 
 	base := db.Model(&models.WireGuardLink{}).Where(&models.WireGuardLink{WireGuardLinkEntity: &models.WireGuardLinkEntity{
-		UserId:   uint32(userInfo.GetUserID()),
 		TenantId: uint32(userInfo.GetTenantID()),
 	}})
 

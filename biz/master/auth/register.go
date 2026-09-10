@@ -13,6 +13,7 @@ import (
 	"github.com/Sakurame1/frp-manager/utils"
 	"github.com/gin-gonic/gin"
 	"github.com/google/uuid"
+	"gorm.io/gorm"
 )
 
 type registerJSONRequest struct {
@@ -79,14 +80,6 @@ func registerUser(c *app.Context, req registerJSONRequest) (*pb.RegisterResponse
 	}
 
 	tenantID := defs.DefaultAdminUserID
-	if userCount > 0 && inviteRequired(c) {
-		tenantID, err = consumeInviteCode(c, req.InviteCode)
-		if err != nil {
-			return &pb.RegisterResponse{
-				Status: &pb.Status{Code: pb.RespCode_RESP_CODE_INVALID, Message: err.Error()},
-			}, err
-		}
-	}
 
 	hashedPassword, err := utils.HashPassword(req.Password)
 	if err != nil {
@@ -110,7 +103,32 @@ func registerUser(c *app.Context, req registerJSONRequest) (*pb.RegisterResponse
 		newUser.TenantID = defs.DefaultAdminUserID
 	}
 
-	err = dao.NewMutation(c).CreateUser(newUser)
+	err = c.GetApp().GetDBManager().GetDefaultDB().Transaction(func(tx *gorm.DB) error {
+		if userCount > 0 {
+			if inviteRequired(c) || strings.TrimSpace(req.InviteCode) != "" {
+				invite, err := consumeGroupInvite(tx, req.InviteCode)
+				if err != nil {
+					return err
+				}
+				newUser.TenantID, newUser.LanguageGroupID = invite.TenantID, invite.LanguageGroupID
+			} else {
+				id, err := models.DefaultLanguageGroup(tx, newUser.TenantID)
+				if err != nil {
+					return err
+				}
+				newUser.LanguageGroupID = id
+			}
+		}
+		if userCount == 0 {
+			if _, err := models.DefaultLanguageGroup(tx, newUser.TenantID); err != nil {
+				return err
+			}
+			if err := tx.Create(&models.SystemSetting{Key: "language_groups_v1", TenantID: newUser.TenantID, Value: uuid.NewString()}).Error; err != nil {
+				return err
+			}
+		}
+		return tx.Create(&models.User{UserEntity: newUser}).Error
+	})
 	if err != nil {
 		return &pb.RegisterResponse{
 			Status: &pb.Status{Code: pb.RespCode_RESP_CODE_INVALID, Message: err.Error()},

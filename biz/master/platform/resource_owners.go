@@ -17,8 +17,10 @@ type resourceOwners struct {
 	Resources map[string]int `json:"resources"`
 }
 type ownerOption struct {
-	ID   int    `json:"id"`
-	Name string `json:"name"`
+	ID        int    `json:"id"`
+	Name      string `json:"name"`
+	GroupID   string `json:"group_id"`
+	GroupName string `json:"group_name"`
 }
 
 func getResourceOwners(ctx *app.Context, kind string) (*resourceOwners, error) {
@@ -65,18 +67,31 @@ func getResourceOwners(ctx *app.Context, kind string) (*resourceOwners, error) {
 	}
 	// Return only owner IDs and names; never emails, credentials, or other users.
 	var users []struct {
-		UserID   int
-		UserName string
+		UserID          int
+		UserName        string
+		LanguageGroupID string
 	}
-	if err := ctx.GetApp().GetDBManager().GetDefaultDB().Model(&models.User{}).Select("user_id,user_name").Where("user_id IN ?", userIDs).Order("user_name ASC").Find(&users).Error; err != nil {
+	if err := ctx.GetApp().GetDBManager().GetDefaultDB().Model(&models.User{}).Select("user_id,user_name,language_group_id").Where("user_id IN ?", userIDs).Order("user_name ASC").Find(&users).Error; err != nil {
 		return nil, err
 	}
+	var groups []models.LanguageGroup
+	groupIDs := []string{}
 	for _, owner := range users {
-		result.Owners = append(result.Owners, ownerOption{owner.UserID, owner.UserName})
+		groupIDs = append(groupIDs, owner.LanguageGroupID)
+	}
+	if err := ctx.GetApp().GetDBManager().GetDefaultDB().Where("id IN ? AND tenant_id = ?", groupIDs, user.GetTenantID()).Find(&groups).Error; err != nil {
+		return nil, err
+	}
+	groupNames := map[string]string{}
+	for _, group := range groups {
+		groupNames[group.ID] = group.Name
+	}
+	for _, owner := range users {
+		result.Owners = append(result.Owners, ownerOption{ID: owner.UserID, Name: owner.UserName, GroupID: owner.LanguageGroupID, GroupName: groupNames[owner.LanguageGroupID]})
 		delete(ids, owner.UserID)
 	}
 	for id := range ids {
-		result.Owners = append(result.Owners, ownerOption{id, fmt.Sprintf("用户 #%d", id)})
+		result.Owners = append(result.Owners, ownerOption{ID: id, Name: fmt.Sprintf("用户 #%d", id)})
 	}
 	return result, nil
 }

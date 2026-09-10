@@ -8,7 +8,6 @@ import (
 	"time"
 
 	"github.com/Sakurame1/frp-manager/common"
-	"github.com/Sakurame1/frp-manager/defs"
 	"github.com/Sakurame1/frp-manager/pb"
 	"github.com/Sakurame1/frp-manager/services/app"
 	"github.com/Sakurame1/frp-manager/services/dao"
@@ -47,7 +46,7 @@ func ptyHandler(c *gin.Context, appInstance app.Application) {
 		webConn.Close()
 		return
 	}
-	if err := dao.CanAccessClient(app.NewContext(c, appInstance), common.GetUserInfo(c), clientID, defs.RBACActionEdit); err != nil {
+	if err := dao.CanManageClient(app.NewContext(c, appInstance), common.GetUserInfo(c), clientID); err != nil {
 		logger.Logger(c).WithError(err).Errorf("user has no edit permission for client: [%s]", clientID)
 		webConn.Close()
 		return
@@ -140,6 +139,11 @@ func ptyHandler(c *gin.Context, appInstance app.Application) {
 			}
 		}()
 		for {
+			current, err := dao.NewQuery(app.NewContext(c, appInstance)).GetUserByUserID(common.GetUserInfo(c).GetUserID())
+			if err != nil || !current.Valid() || current.SessionVersion != common.GetUserInfo(c).GetSessionVersion() || dao.CanManageClient(app.NewContext(c, appInstance), current, clientID) != nil {
+				webConn.Close()
+				return
+			}
 			if err := webConn.WriteMessage(websocket.PingMessage, []byte("keepalive")); err != nil {
 				logger.Logger(c).Warn("failed to write ping message")
 				return

@@ -43,14 +43,6 @@ func StartProxy(ctx *app.Context, req *pb.StartProxyRequest) (*pb.StartProxyResp
 		return nil, err
 	}
 
-	// 1. 鏇存柊proxy鐘舵€?
-	proxyConfig.Stopped = false
-	err = dao.NewMutation(ctx).UpdateProxyConfig(userInfo, proxyConfig)
-	if err != nil {
-		logger.Logger(ctx).WithError(err).Errorf("cannot update proxy config, client: [%s], server: [%s], proxy name: [%s]", clientID, serverID, proxyName)
-		return nil, err
-	}
-
 	typedProxyConfig, err := proxyConfig.GetTypedProxyConfig()
 	if err != nil {
 		logger.Logger(ctx).WithError(err).Errorf("cannot get typed proxy config, client: [%s], server: [%s], proxy name: [%s]", clientID, serverID, proxyName)
@@ -88,9 +80,13 @@ func StartProxy(ctx *app.Context, req *pb.StartProxyRequest) (*pb.StartProxyResp
 		FrpsUrl:  &clientEntity.FrpsUrl,
 	})
 	if err != nil {
-		logger.Logger(ctx).WithError(err).Warnf("cannot update frpc, id: [%s]", clientID)
+		return nil, err
 	}
 
+	clientEntity.Stopped = false
+	if err := dao.NewMutation(ctx).UpdateClient(userInfo, clientEntity); err != nil {
+		return nil, err
+	}
 	return &pb.StartProxyResponse{
 		Status: &pb.Status{
 			Code:    pb.RespCode_RESP_CODE_SUCCESS,

@@ -5,6 +5,7 @@ import { BaseResponse } from '@/types/api'
 const unwrap = (res: any) => (res.data as BaseResponse).body ?? (res.data as any).data
 
 export interface InviteCode {
+  language_group_id?: string
   id: number
   code: string
   tenant_id: number
@@ -21,7 +22,7 @@ export const listInvites = async (): Promise<InviteCode[]> => {
   return unwrap(res) ?? []
 }
 
-export const createInvite = async (req: { code?: string; max_uses: number; expires_at?: number; comment?: string }) => {
+export const createInvite = async (req: { language_group_id?: string; code?: string; max_uses: number; expires_at?: number; comment?: string }) => {
   const res = await http.post(API_PATH + '/permission/invite/create', req)
   return unwrap(res)
 }
@@ -47,6 +48,7 @@ export const updateRegisterSetting = async (setting: Partial<RegisterSetting>) =
 }
 
 export interface AdminUser {
+  language_group_id?: string
   user_id: number
   user_name: string
   email: string
@@ -99,7 +101,7 @@ export const revokePermission = async (req: { obj_type: string; obj_id: string; 
   return unwrap(res)
 }
 
-export const batchCreateUsers = async (req: { username: string; email: string; count: number }): Promise<AdminUser[]> => {
+export const batchCreateUsers = async (req: { language_group_id?: string; username: string; email: string; count: number }): Promise<AdminUser[]> => {
   const res = await http.post(API_PATH + '/permission/user/batch-create', req, { timeout: 180_000 })
   return unwrap(res)
 }

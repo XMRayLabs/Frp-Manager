@@ -102,25 +102,11 @@ func (q *proxyQuery) GetProxyStatsByServerID(userInfo models.UserInfo, serverID 
 	if err := CanAccessServer(q.ctx, userInfo, serverID, defs.RBACActionView); err != nil {
 		return nil, err
 	}
-	db := q.ctx.GetApp().GetDBManager().GetDefaultDB()
-	list := []*models.ProxyStats{}
-	err := db.
-		Where(&models.ProxyStats{ProxyStatsEntity: &models.ProxyStatsEntity{
-			UserID:   userInfo.GetUserID(),
-			TenantID: userInfo.GetTenantID(),
-			ServerID: serverID,
-		}}).Or(&models.ProxyStats{ProxyStatsEntity: &models.ProxyStatsEntity{
-		UserID:   0,
-		TenantID: userInfo.GetTenantID(),
-		ServerID: serverID,
-	}}).
-		Find(&list).Error
+	rows, err := q.GetAllProxyStats(userInfo)
 	if err != nil {
 		return nil, err
 	}
-	return lo.Map(list, func(item *models.ProxyStats, _ int) *models.ProxyStatsEntity {
-		return item.ProxyStatsEntity
-	}), nil
+	return lo.Filter(rows, func(row *models.ProxyStatsEntity, _ int) bool { return row.ServerID == serverID }), nil
 }
 
 func (m *proxyMutation) AdminUpdateProxyStats(srv *models.ServerEntity, inputs []*pb.ProxyInfo) error {
@@ -213,6 +199,7 @@ func (m *proxyMutation) AdminUpdateProxyStats(srv *models.ServerEntity, inputs [
 			}
 			for _, cfg := range cliCfg.Proxies {
 				if proxy, ok := proxyMap[cfg.GetBaseConfig().Name]; ok {
+					proxy.UserID = client.UserID
 					proxy.ClientID = client.ClientID
 					proxy.OriginClientID = client.OriginClientID
 					proxyEntityMap[proxy.Name] = proxy
@@ -406,38 +393,8 @@ func (q *proxyQuery) GetAllProxyStats(userInfo models.UserInfo) ([]*models.Proxy
 	query := db.Model(&models.ProxyStats{}).Where("tenant_id = ?", userInfo.GetTenantID())
 
 	if !userInfo.IsAdmin() {
-		var clientIDs, serverIDs []string
-		if err := scopeOwnedOrShared(
-			db.Model(&models.Client{}),
-			q.ctx,
-			userInfo,
-			defs.RBACObjClient,
-			"client_id",
-			defs.RBACActionView,
-		).Pluck("client_id", &clientIDs).Error; err != nil {
-			return nil, err
-		}
-		if err := scopeOwnedOrShared(
-			db.Model(&models.Server{}),
-			q.ctx,
-			userInfo,
-			defs.RBACObjServer,
-			"server_id",
-			defs.RBACActionView,
-		).Pluck("server_id", &serverIDs).Error; err != nil {
-			return nil, err
-		}
-
-		accessScope := db.Where("user_id = ?", userInfo.GetUserID())
-		if len(clientIDs) > 0 {
-			accessScope = accessScope.
-				Or("client_id IN ?", clientIDs).
-				Or("origin_client_id IN ?", clientIDs)
-		}
-		if len(serverIDs) > 0 {
-			accessScope = accessScope.Or("server_id IN ?", serverIDs)
-		}
-		query = query.Where(accessScope)
+		nodes := organizationScope(db.Model(&models.Client{}), q.ctx, userInfo, defs.RBACObjClient, "client_id", defs.RBACActionView).Select("client_id")
+		query = query.Where("client_id IN (?) OR origin_client_id IN (?)", nodes, nodes)
 	}
 
 	var list []*models.ProxyStats
@@ -471,18 +428,8 @@ func (q *proxyQuery) proxyConfigQuery(userInfo models.UserInfo, filters *models.
 			return nil, err
 		}
 		query = query.Where(db.Where("origin_client_id = ?", clientID).Or("client_id = ?", clientID))
-	} else if !userInfo.IsAdmin() {
-		sharedIDs := accessibleObjectIDs(q.ctx, userInfo, defs.RBACObjClient, action)
-		ownedScope := db.Where("user_id = ?", userInfo.GetUserID())
-		if len(sharedIDs) == 0 {
-			query = query.Where(ownedScope)
-		} else {
-			query = query.Where(
-				ownedScope.
-					Or("origin_client_id IN ?", sharedIDs).
-					Or("client_id IN ?", sharedIDs),
-			)
-		}
+	} else {
+		query = organizationScope(query, q.ctx, userInfo, defs.RBACObjClient, "client_id", action)
 	}
 
 	return query.Where(&models.ProxyConfig{ProxyConfigEntity: filter}), nil

@@ -1,0 +1,30 @@
+# Usage: docker compose -f docker-compose.yml -f docker-compose.postgres.yml ...
+services:
+  postgres:
+    image: postgres:17
+    restart: unless-stopped
+    environment:
+      POSTGRES_DB: frp_manager
+      POSTGRES_USER: frp_manager
+      POSTGRES_PASSWORD: ${POSTGRES_PASSWORD:?Set POSTGRES_PASSWORD to a long random password in .env}
+    ports:
+      - "127.0.0.1:${POSTGRES_PORT:-5433}:5432"
+    volumes:
+      - frp-manager-postgres:/var/lib/postgresql/data
+    healthcheck:
+      test: ["CMD-SHELL", "pg_isready -U frp_manager -d frp_manager"]
+      interval: 5s
+      timeout: 5s
+      retries: 20
+  frp-manager:
+    depends_on:
+      postgres:
+        condition: service_healthy
+    environment:
+      DB_TYPE: postgres
+      DB_DSN: "host=127.0.0.1 port=${POSTGRES_PORT:-5433} user=frp_manager password=${POSTGRES_PASSWORD:?Set POSTGRES_PASSWORD} dbname=frp_manager sslmode=disable connect_timeout=10"
+      DB_MAX_OPEN_CONNS: ${DB_MAX_OPEN_CONNS:-20}
+      DB_MAX_IDLE_CONNS: ${DB_MAX_IDLE_CONNS:-5}
+      DB_CONN_MAX_LIFETIME_SECONDS: ${DB_CONN_MAX_LIFETIME_SECONDS:-1800}
+volumes:
+  frp-manager-postgres:

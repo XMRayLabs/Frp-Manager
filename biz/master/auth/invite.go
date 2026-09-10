@@ -84,3 +84,29 @@ func consumeInviteCode(ctx *app.Context, code string) (int, error) {
 	})
 	return tenantID, err
 }
+
+// consumeGroupInvite participates in the account creation transaction.
+func consumeGroupInvite(tx *gorm.DB, code string) (*models.InviteCode, error) {
+	var invite models.InviteCode
+	if strings.TrimSpace(code) == "" {
+		return nil, fmt.Errorf("invite code is required")
+	}
+	if err := tx.Clauses(clause.Locking{Strength: "UPDATE"}).Where("code = ?", strings.TrimSpace(code)).First(&invite).Error; err != nil {
+		return nil, fmt.Errorf("invalid invite code")
+	}
+	if invite.Disabled || (invite.ExpiresAt != nil && !time.Now().Before(*invite.ExpiresAt)) || (invite.MaxUses > 0 && invite.UsedCount >= invite.MaxUses) {
+		return nil, fmt.Errorf("invite code expired or exhausted")
+	}
+	var group models.LanguageGroup
+	if err := tx.Where("id = ? AND tenant_id = ?", invite.LanguageGroupID, invite.TenantID).First(&group).Error; err != nil {
+		return nil, fmt.Errorf("invite language group is unavailable")
+	}
+	result := tx.Model(&models.InviteCode{}).Where("id = ? AND used_count = ? AND disabled = ?", invite.ID, invite.UsedCount, false).Update("used_count", gorm.Expr("used_count + 1"))
+	if result.Error != nil {
+		return nil, result.Error
+	}
+	if result.RowsAffected != 1 {
+		return nil, fmt.Errorf("invite code changed; retry")
+	}
+	return &invite, nil
+}

@@ -1,3 +1,4 @@
+import { organization } from '@/api/organization'
 import { useRouter } from 'next/router'
 import { getNodeOverview } from '@/api/platform'
 import { getResourceOwners } from '@/api/resource-owners'
@@ -37,6 +38,9 @@ export interface ClientListProps {
 }
 
 export const ClientList: React.FC<ClientListProps> = ({ Clients, Keyword, TriggerRefetch }) => {
+  const [scopeFilter,setScopeFilter] = React.useState('all')
+  const capabilities = useQuery({queryKey:['organizationClients',TriggerRefetch],queryFn:()=>organization<Record<string,{private:boolean;mine:boolean;owner_name:string;group_id:string}>>('clients'),refetchInterval:30000})
+  const [groupFilter,setGroupFilter] = React.useState('all')
   const [ownerFilter, setOwnerFilter] = React.useState('all')
   const router = useRouter()
   const pendingOnly = router.query.pending === '1'
@@ -60,7 +64,7 @@ export const ClientList: React.FC<ClientListProps> = ({ Clients, Keyword, Trigge
   })
 
   const ownersQuery = useQuery({ queryKey: ['resourceOwners', 'client', TriggerRefetch, globalRefetchTrigger], queryFn: () => getResourceOwners('client'), refetchInterval: 30_000 })
-  const advancedFilter = pendingOnly || ownerFilter !== 'all' || configFilter !== 'all' || runtimeFilter !== 'all' || nodeFilter !== 'all'
+  const advancedFilter = groupFilter !== 'all' || scopeFilter !== 'all' || pendingOnly || ownerFilter !== 'all' || configFilter !== 'all' || runtimeFilter !== 'all' || nodeFilter !== 'all'
   const fetchDataOptions = {
     advancedFilter,
     pageIndex: advancedFilter ? 0 : pageIndex,
@@ -131,6 +135,8 @@ export const ClientList: React.FC<ClientListProps> = ({ Clients, Keyword, Trigge
         const version = status?.version
         return {
           id,
+          private: capabilities.data?.[id]?.private,
+          ownerName: capabilities.data?.[id]?.owner_name,
           status: ClientConfigured(client) ? 'valid' : 'invalid',
           runtimeStatus,
           ping: status?.ping ?? Number.MAX_SAFE_INTEGER,
@@ -144,16 +150,18 @@ export const ClientList: React.FC<ClientListProps> = ({ Clients, Keyword, Trigge
           clientIds: client.clientIds || [],
         } as ClientTableSchema
       })
+      .filter((row) => scopeFilter === 'all' || (scopeFilter === 'mine' ? capabilities.data?.[row.id]?.mine : capabilities.data?.[row.id] && !capabilities.data[row.id].mine))
+      .filter((row) => groupFilter === 'all' || ownersQuery.data?.owners.find(o=>o.id===ownersQuery.data?.resources[String(row.id)])?.group_id===groupFilter)
       .filter((row) => ownerFilter === 'all' || String(ownersQuery.data?.resources[row.id]) === ownerFilter)
       .filter((row) => !pendingOnly || pendingIDs.has(row.id))
       .filter((row) => configFilter === 'all' || row.status === configFilter)
       .filter((row) => runtimeFilter === 'all' || row.runtimeStatus === runtimeFilter)
       .filter((row) => nodeFilter === 'all' || (nodeFilter === 'ephemeral' ? row.ephemeral : !row.ephemeral))
-  }, [allClients, statusQuery.data, pendingOnly, pendingIDs, configFilter, runtimeFilter, nodeFilter, ownerFilter, ownersQuery.data])
+  }, [allClients, capabilities.data, scopeFilter, statusQuery.data, pendingOnly, pendingIDs, configFilter, runtimeFilter, nodeFilter, ownerFilter, groupFilter, ownersQuery.data])
 
   React.useEffect(() => {
     setPagination((current) => ({ ...current, pageIndex: 0 }))
-  }, [Keyword, pendingOnly, configFilter, runtimeFilter, nodeFilter, ownerFilter])
+  }, [scopeFilter, Keyword, pendingOnly, configFilter, runtimeFilter, nodeFilter, ownerFilter, groupFilter])
 
   const table = useReactTable({
     data: rows,
@@ -203,6 +211,8 @@ export const ClientList: React.FC<ClientListProps> = ({ Clients, Keyword, Trigge
       toolbar={
         <div className="flex flex-wrap items-center gap-2">
           <Button variant={pendingOnly ? 'default' : 'outline'} onClick={() => { const query = { ...router.query }; if (pendingOnly) delete query.pending; else query.pending = '1'; void router.replace({ pathname: router.pathname, query }, undefined, { shallow: true }) }}>{pendingOnly ? '待处理 · 点击查看全部' : '仅看待处理'}</Button>
+          <select aria-label="设备归属范围" className="h-9 rounded border bg-background px-3 text-sm" value={scopeFilter} onChange={e=>setScopeFilter(e.target.value)}><option value="all">全部可管理设备</option><option value="mine">我的设备</option><option value="shared">语系其他设备</option></select>
+          <select aria-label="所属语系筛选" className="h-9 rounded border bg-background px-3 text-sm" value={groupFilter} onChange={e=>{setGroupFilter(e.target.value);setOwnerFilter('all')}}><option value="all">全部语系</option>{Array.from(new Map(ownersQuery.data?.owners.filter(o=>o.group_id).map(o=>[o.group_id,o.group_name])).entries()).map(([id,name])=><option key={id} value={id}>{name}</option>)}</select>
           <OwnerFilter value={ownerFilter} onChange={setOwnerFilter} data={ownersQuery.data} loading={ownersQuery.isPending} error={ownersQuery.error} retry={() => { void ownersQuery.refetch() }} />
           <span className="text-xs text-muted-foreground">
             共 {dataQuery.data?.total ?? 0} 个节点 · {advancedFilter ? '全局筛选' : '按页加载 · 排序作用于当前页'}

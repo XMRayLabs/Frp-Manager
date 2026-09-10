@@ -75,6 +75,10 @@ func ListClientsHandler(ctx *app.Context, req *pb.ListClientsRequest) (*pb.ListC
 		if c.LastSeenAt != nil {
 			respCli.LastSeenAt = lo.ToPtr(c.LastSeenAt.UnixMilli())
 		}
+		if !userInfo.IsAdmin() && !models.IsGroupAdmin(userInfo) && userInfo.GetUserID() != c.UserID {
+			respCli.Secret = nil
+			respCli.Config = sharedClientConfig(respCli.GetConfig())
+		}
 		return respCli
 	})
 

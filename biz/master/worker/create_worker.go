@@ -27,6 +27,9 @@ func CreateWorker(ctx *app.Context, req *pb.CreateWorkerRequest) (*pb.CreateWork
 		return nil, err
 	}
 
+	if err := dao.CanManageClient(ctx, userInfo, clientId); err != nil {
+		return nil, err
+	}
 	cli, err := q.GetClientByClientID(userInfo, clientId)
 	if err != nil {
 		logger.Logger(ctx).WithError(err).Errorf("cannot get client, id: [%s], workerName: [%s]", clientId, reqWorker.GetName())

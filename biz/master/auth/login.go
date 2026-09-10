@@ -27,7 +27,7 @@ func LoginHandler(ctx *app.Context, req *pb.LoginRequest) (*pb.LoginResponse, er
 		return nil, err
 	}
 
-	if !ok {
+	if !ok || !user.Valid() {
 		return &pb.LoginResponse{
 			Status: &pb.Status{Code: pb.RespCode_RESP_CODE_INVALID, Message: "invalid username or password"},
 		}, nil
@@ -54,7 +54,12 @@ func LoginHandler(ctx *app.Context, req *pb.LoginRequest) (*pb.LoginResponse, er
 		}, userEntity.UserEntity)
 	}
 
-	tokenStr := conf.GetJWTWithAllPermission(ctx.GetApp().GetConfig(), user.GetUserID())
+	tokenStr, err := conf.GetJWTWithPayload(ctx.GetApp().GetConfig(), user.GetUserID(), map[string]interface{}{
+		defs.TokenPayloadKey_Permissions: conf.AllPermission(), "session_version": user.GetSessionVersion(),
+	})
+	if err != nil {
+		return nil, err
+	}
 
 	ginCtx := ctx.GetGinCtx()
 	middleware.PushTokenStr(ginCtx, ctx.GetApp(), tokenStr)

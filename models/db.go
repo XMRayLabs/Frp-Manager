@@ -18,65 +18,23 @@ func (dbm *dbManagerImpl) Init() {
 	for _, dbGroup := range dbm.DBs {
 		for _, db := range dbGroup {
 			ctx := context.Background()
+			if err := BackupBeforeLanguageMigration(db); err != nil {
+				logger.Logger(ctx).WithError(err).Fatal("cannot back up database before 1.1.0 migration")
+			}
 			if err := db.Migrator().DropIndex(&Endpoint{}, "idx_client_id_host_port"); err != nil {
 				logger.Logger(ctx).WithError(err).Infof("cannot drop index [%s], your db is updated", "idx_client_id_host_port")
 			}
 
-			if err := db.AutoMigrate(&NodeAlias{}); err != nil {
-				logger.Logger(ctx).WithError(err).Fatal("cannot init node aliases")
-			}
-			if err := db.AutoMigrate(&Client{}); err != nil {
-				logger.Logger(ctx).WithError(err).Fatalf("cannot init db table [%s]", (&Client{}).TableName())
-			}
-			if err := db.AutoMigrate(&EnrollmentToken{}); err != nil {
-				logger.Logger(ctx).WithError(err).Fatal("cannot init enrollment tokens")
-			}
-			if err := db.AutoMigrate(&User{}); err != nil {
-				logger.Logger(ctx).WithError(err).Fatalf("cannot init db table [%s]", (&User{}).TableName())
-			}
-			if err := db.AutoMigrate(&Server{}); err != nil {
-				logger.Logger(ctx).WithError(err).Fatalf("cannot init db table [%s]", (&Server{}).TableName())
+			if err := MigrateSchema(db); err != nil {
+				logger.Logger(ctx).WithError(err).Fatal("cannot initialize database schema")
 			}
 			if err := MigrateNodeIdentity(db); err != nil {
 				logger.Logger(ctx).WithError(err).Fatal("cannot migrate node identity")
 			}
-			if err := db.AutoMigrate(&Cert{}); err != nil {
-				logger.Logger(ctx).WithError(err).Fatalf("cannot init db table [%s]", (&Cert{}).TableName())
-			}
-			if err := db.AutoMigrate(&ProxyStats{}); err != nil {
-				logger.Logger(ctx).WithError(err).Fatalf("cannot init db table [%s]", (&ProxyStats{}).TableName())
-			}
-			if err := db.AutoMigrate(&HistoryProxyStats{}); err != nil {
-				logger.Logger(ctx).WithError(err).Fatalf("cannot init db table [%s]", (&HistoryProxyStats{}).TableName())
-			}
-			if err := db.AutoMigrate(&Worker{}); err != nil {
-				logger.Logger(ctx).WithError(err).Fatalf("cannot init db table [%s]", (&Worker{}).TableName())
-			}
-			if err := db.AutoMigrate(&ProxyConfig{}); err != nil {
-				logger.Logger(ctx).WithError(err).Fatalf("cannot init db table [%s]", (&ProxyConfig{}).TableName())
-			}
-			if err := db.AutoMigrate(&UserGroup{}); err != nil {
-				logger.Logger(ctx).WithError(err).Fatalf("cannot init db table [%s]", (&UserGroup{}).TableName())
-			}
-			if err := db.AutoMigrate(&InviteCode{}); err != nil {
-				logger.Logger(ctx).WithError(err).Fatalf("cannot init db table [%s]", (&InviteCode{}).TableName())
-			}
-			if err := db.AutoMigrate(&SystemSetting{}); err != nil {
-				logger.Logger(ctx).WithError(err).Fatalf("cannot init db table [%s]", (&SystemSetting{}).TableName())
-			}
-			if err := db.AutoMigrate(&WireGuard{}); err != nil {
-				logger.Logger(ctx).WithError(err).Fatalf("cannot init db table [%s]", (&WireGuard{}).TableName())
-			}
-			if err := db.AutoMigrate(&Network{}); err != nil {
-				logger.Logger(ctx).WithError(err).Fatalf("cannot init db table [%s]", (&Network{}).TableName())
-			}
-			if err := db.AutoMigrate(&Endpoint{}); err != nil {
-				logger.Logger(ctx).WithError(err).Fatalf("cannot init db table [%s]", (&Endpoint{}).TableName())
-			}
-			if err := db.AutoMigrate(&WireGuardLink{}); err != nil {
-				logger.Logger(ctx).WithError(err).Fatalf("cannot init db table [%s]", (&WireGuardLink{}).TableName())
-			}
 
+			if err := MigrateLanguageGroups(db); err != nil {
+				logger.Logger(ctx).WithError(err).Fatal("cannot migrate language groups")
+			}
 		}
 	}
 }

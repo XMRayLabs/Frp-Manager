@@ -18,9 +18,11 @@ import (
 )
 
 type batchUsersRequest struct {
-	Username string `json:"username"`
-	Email    string `json:"email"`
-	Count    int    `json:"count"`
+	ActorID         int    `json:"-"`
+	LanguageGroupID string `json:"language_group_id"`
+	Username        string `json:"username"`
+	Email           string `json:"email"`
+	Count           int    `json:"count"`
 }
 
 var numberedName = regexp.MustCompile(`^(.*?)([0-9]+)$`)
@@ -91,6 +93,7 @@ func createBatchUsers(db *gorm.DB, tenantID int, req batchUsersRequest) ([]model
 		}
 		rows[i].Password = password
 		rows[i].TenantID = tenantID
+		rows[i].LanguageGroupID = req.LanguageGroupID
 		rows[i].Token = uuid.NewString()
 	}
 	err = db.Transaction(func(tx *gorm.DB) error {
@@ -106,6 +109,9 @@ func createBatchUsers(db *gorm.DB, tenantID int, req batchUsersRequest) ([]model
 				return fmt.Errorf("批量创建失败，整批已回滚")
 			}
 		}
+		if req.ActorID > 0 {
+			return tx.Create(&models.OrganizationAudit{TenantID: tenantID, LanguageGroupID: req.LanguageGroupID, ActorID: req.ActorID, Action: "batch-create-users", Detail: fmt.Sprintf("count=%d", len(rows))}).Error
+		}
 		return nil
 	})
 	if err != nil {
@@ -120,7 +126,7 @@ func createBatchUsers(db *gorm.DB, tenantID int, req batchUsersRequest) ([]model
 func BatchCreateUsers(instance app.Application) gin.HandlerFunc {
 	return func(c *gin.Context) {
 		user := common.GetUserInfo(c)
-		if user == nil || !user.IsAdmin() {
+		if !models.IsAccountManager(user) {
 			errJSON(c, http.StatusForbidden, fmt.Errorf("仅管理员可以批量创建用户"))
 			return
 		}
@@ -129,6 +135,20 @@ func BatchCreateUsers(instance app.Application) gin.HandlerFunc {
 			errJSON(c, http.StatusBadRequest, fmt.Errorf("invalid request"))
 			return
 		}
+		db := instance.GetDBManager().GetDefaultDB()
+		if !user.IsAdmin() {
+			req.LanguageGroupID = models.GroupID(user)
+		}
+		if req.LanguageGroupID == "" {
+			errJSON(c, 400, fmt.Errorf("请选择所属语系"))
+			return
+		}
+		var group models.LanguageGroup
+		if err := db.Where("id = ? AND tenant_id = ?", req.LanguageGroupID, user.GetTenantID()).First(&group).Error; err != nil {
+			errJSON(c, 400, err)
+			return
+		}
+		req.ActorID = user.GetUserID()
 		rows, err := createBatchUsers(instance.GetDBManager().GetDefaultDB(), user.GetTenantID(), req)
 		if err != nil {
 			errJSON(c, http.StatusBadRequest, err)

@@ -15,7 +15,8 @@ type ProxyConfig struct {
 	*ProxyConfigEntity
 
 	WorkerID string `gorm:"type:varchar(255);index"` // 寮曠敤鐨剋orker
-	Worker   Worker
+	// Empty WorkerID means a normal tunnel; ownership is checked in the DAO.
+	Worker Worker `gorm:"constraint:-"`
 }
 
 type ProxyConfigEntity struct {

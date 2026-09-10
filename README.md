@@ -196,3 +196,7 @@ See [GitHub automated releases](docs/github-release.md) for Actions secrets, sig
 ## License
 
 GPL-3.0
+
+### PostgreSQL 多用户部署
+
+1.1.0 支持 PostgreSQL 部署和 SQLite 离线迁移，保留账号及设备密钥。参见[PostgreSQL 部署与迁移指南](docs/postgresql.md)。

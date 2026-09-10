@@ -99,6 +99,13 @@ func JWTAuth(appInstance app.Application) func(c *gin.Context) {
 }
 
 func resignAndPatchCtxJWT(c *gin.Context, appInstance app.Application, userID int, t jwt.MapClaims, tokenStr string) error {
+	var account models.User
+	if err := appInstance.GetDBManager().GetDefaultDB().Where("user_id = ?", userID).First(&account).Error; err != nil {
+		return errors.New("invalid account")
+	}
+	if !account.Valid() || cast.ToInt(t["session_version"]) != account.SessionVersion {
+		return errors.New("session expired; please sign in again")
+	}
 	tokenExpire, _ := t.GetExpirationTime()
 	if tokenExpire == nil {
 		return errors.New("jwt token has no expiration")

@@ -21,7 +21,7 @@ func TestBatchIdentitiesThirtyAndWidthBoundary(t *testing.T) {
 	if err != nil || rows[1].UserName != "ig100" {
 		t.Fatal("width rollover failed")
 	}
-	for _, req := range []batchUsersRequest{{"ig", "ig01@xmray.de", 30}, {"ig01", "bad", 30}, {"ig01", "ig01@xmray.de", 0}, {"ig01", "ig01@xmray.de", 101}} {
+	for _, req := range []batchUsersRequest{{Username: "ig", Email: "ig01@xmray.de", Count: 30}, {Username: "ig01", Email: "bad", Count: 30}, {Username: "ig01", Email: "ig01@xmray.de", Count: 0}, {Username: "ig01", Email: "ig01@xmray.de", Count: 101}} {
 		if _, err = batchIdentities(req); err == nil {
 			t.Fatalf("accepted invalid request %+v", req)
 		}
@@ -58,7 +58,7 @@ func TestBatchUsersHashPasswordsAndRollback(t *testing.T) {
 			tx.AddError(fmt.Errorf("injected failure"))
 		}
 	})
-	if _, err = createBatchUsers(db, 9, batchUsersRequest{"tx01", "tx01@xmray.de", 2}); err == nil {
+	if _, err = createBatchUsers(db, 9, batchUsersRequest{Username: "tx01", Email: "tx01@xmray.de", Count: 2}); err == nil {
 		t.Fatal("failure not propagated")
 	}
 	var count int64

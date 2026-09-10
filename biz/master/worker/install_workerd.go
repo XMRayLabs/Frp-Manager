@@ -16,6 +16,9 @@ func InstallWorkerd(ctx *app.Context, req *pb.InstallWorkerdRequest) (*pb.Instal
 	)
 	logger.Logger(ctx).Infof("installw orkerd called with userInfo: %v, clientId: %s", userInfo, clientId)
 
+	if err := dao.CanManageClient(ctx, userInfo, clientId); err != nil {
+		return nil, err
+	}
 	_, err := dao.NewQuery(ctx).GetClientByClientID(userInfo, clientId)
 	if err != nil {
 		logger.Logger(ctx).WithError(err).Errorf("failed to get client by clientID: %s", clientId)

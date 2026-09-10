@@ -153,6 +153,9 @@ func (q *serverQuery) GetServersByServerIDs(userInfo models.UserInfo, serverIDs 
 }
 
 func (m *serverMutation) CreateServer(userInfo models.UserInfo, server *models.ServerEntity) error {
+	if !userInfo.IsAdmin() {
+		return fmt.Errorf("仅网站管理员可创建服务端")
+	}
 	server.UserID = userInfo.GetUserID()
 	server.TenantID = userInfo.GetTenantID()
 	c := &models.Server{
@@ -192,6 +195,11 @@ func (m *serverMutation) DeleteServer(userInfo models.UserInfo, serverID string)
 		}
 		if err := tx.Model(&models.Client{}).Where("server_id = ?", serverID).Updates(map[string]interface{}{"server_id": "", "config_content": nil}).Error; err != nil {
 			return err
+		}
+		if tx.Migrator().HasTable(&models.LanguageGroupServer{}) {
+			if err := tx.Where("server_id = ?", serverID).Delete(&models.LanguageGroupServer{}).Error; err != nil {
+				return err
+			}
 		}
 		return tx.Unscoped().Where("server_id = ?", serverID).Delete(&models.Server{}).Error
 	}); err != nil {

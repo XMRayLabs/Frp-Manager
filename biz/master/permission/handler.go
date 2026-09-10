@@ -12,9 +12,12 @@ import (
 	"github.com/Sakurame1/frp-manager/defs"
 	"github.com/Sakurame1/frp-manager/models"
 	"github.com/Sakurame1/frp-manager/services/app"
+	"github.com/Sakurame1/frp-manager/services/dao"
 	rbacsvc "github.com/Sakurame1/frp-manager/services/rbac"
+	"github.com/Sakurame1/frp-manager/utils"
 	"github.com/gin-gonic/gin"
 	"github.com/google/uuid"
+	"gorm.io/gorm"
 )
 
 type permissionRequest struct {
@@ -46,10 +49,11 @@ type userAdminRequest struct {
 }
 
 type inviteCreateRequest struct {
-	Code      string `json:"code"`
-	MaxUses   int    `json:"max_uses"`
-	ExpiresAt *int64 `json:"expires_at"`
-	Comment   string `json:"comment"`
+	LanguageGroupID string `json:"language_group_id"`
+	Code            string `json:"code"`
+	MaxUses         int    `json:"max_uses"`
+	ExpiresAt       *int64 `json:"expires_at"`
+	Comment         string `json:"comment"`
 }
 
 type inviteUpdateRequest struct {
@@ -98,6 +102,36 @@ func Share(appInstance app.Application) gin.HandlerFunc {
 			return
 		}
 
+		if objType == defs.RBACObjServer {
+			errJSON(c, 400, fmt.Errorf("请在语系管理中分配服务端"))
+			return
+		}
+		if objType == defs.RBACObjClient {
+			var node models.Client
+			if err := appInstance.GetDBManager().GetDefaultDB().Where("client_id = ? AND tenant_id = ?", req.ObjID, userInfo.GetTenantID()).First(&node).Error; err != nil {
+				errJSON(c, 400, err)
+				return
+			}
+			var owner models.User
+			if err := appInstance.GetDBManager().GetDefaultDB().Where("user_id = ?", node.UserID).First(&owner).Error; err != nil {
+				errJSON(c, 400, err)
+				return
+			}
+			if owner.LanguageGroupID == "" {
+				errJSON(c, 400, fmt.Errorf("未归属语系的设备不参与共享"))
+				return
+			}
+			var count int64
+			if req.TargetType == string(defs.RBACSubjectUser) {
+				appInstance.GetDBManager().GetDefaultDB().Model(&models.User{}).Where("user_id = ? AND tenant_id = ? AND language_group_id = ?", req.TargetID, userInfo.GetTenantID(), owner.LanguageGroupID).Count(&count)
+			} else {
+				appInstance.GetDBManager().GetDefaultDB().Model(&models.UserGroup{}).Where("group_id = ? AND tenant_id = ? AND language_group_id = ?", req.TargetID, userInfo.GetTenantID(), owner.LanguageGroupID).Count(&count)
+			}
+			if count != 1 {
+				errJSON(c, 403, fmt.Errorf("只可向设备所属语系授权"))
+				return
+			}
+		}
 		for _, permission := range permissions {
 			switch req.TargetType {
 			case string(defs.RBACSubjectUser):
@@ -255,7 +289,12 @@ func ListGroups(appInstance app.Application) gin.HandlerFunc {
 		userInfo := common.GetUserInfo(c)
 		var groups []*models.UserGroup
 		if err := appInstance.GetDBManager().GetDefaultDB().
-			Where(&models.UserGroup{TenantID: userInfo.GetTenantID()}).
+			Where("tenant_id = ?", userInfo.GetTenantID()).Scopes(func(db *gorm.DB) *gorm.DB {
+			if !userInfo.IsAdmin() {
+				return db.Where("language_group_id = ? AND language_group_id <> ?", models.GroupID(userInfo), "")
+			}
+			return db
+		}).
 			Preload("Users").
 			Find(&groups).Error; err != nil {
 			errJSON(c, http.StatusInternalServerError, err)
@@ -268,7 +307,7 @@ func ListGroups(appInstance app.Application) gin.HandlerFunc {
 func ListUsers(appInstance app.Application) gin.HandlerFunc {
 	return func(c *gin.Context) {
 		userInfo := common.GetUserInfo(c)
-		if !userInfo.IsAdmin() {
+		if !models.IsAccountManager(userInfo) {
 			errJSON(c, http.StatusForbidden, fmt.Errorf("only admin can list users"))
 			return
 		}
@@ -276,7 +315,12 @@ func ListUsers(appInstance app.Application) gin.HandlerFunc {
 		var users []*models.User
 		if err := appInstance.GetDBManager().GetDefaultDB().
 			Where(&models.User{UserEntity: &models.UserEntity{TenantID: userInfo.GetTenantID()}}).
-			Preload("Groups").
+			Scopes(func(db *gorm.DB) *gorm.DB {
+				if !userInfo.IsAdmin() {
+					return db.Where("language_group_id = ?", models.GroupID(userInfo))
+				}
+				return db
+			}).
 			Find(&users).Error; err != nil {
 			errJSON(c, http.StatusInternalServerError, err)
 			return
@@ -381,7 +425,7 @@ func ListResourcePermissions(appInstance app.Application) gin.HandlerFunc {
 func UpdateUser(appInstance app.Application) gin.HandlerFunc {
 	return func(c *gin.Context) {
 		userInfo := common.GetUserInfo(c)
-		if !userInfo.IsAdmin() {
+		if !models.IsAccountManager(userInfo) {
 			errJSON(c, http.StatusForbidden, fmt.Errorf("only admin can update users"))
 			return
 		}
@@ -394,30 +438,62 @@ func UpdateUser(appInstance app.Application) gin.HandlerFunc {
 			errJSON(c, http.StatusBadRequest, fmt.Errorf("invalid user id"))
 			return
 		}
-		if req.Role != "" && req.Role != defs.UserRole_Admin && req.Role != defs.UserRole_Normal {
+		if req.Role != "" && req.Role != defs.UserRole_Admin && req.Role != defs.UserRole_Normal && req.Role != defs.UserRole_GroupAdmin {
 			errJSON(c, http.StatusBadRequest, fmt.Errorf("invalid role"))
 			return
 		}
 
+		models.NodeIdentityMu.Lock()
+		defer models.NodeIdentityMu.Unlock()
 		db := appInstance.GetDBManager().GetDefaultDB()
 		user := &models.User{}
 		if err := db.Where(&models.User{UserEntity: &models.UserEntity{UserID: req.UserID, TenantID: userInfo.GetTenantID()}}).First(user).Error; err != nil {
 			errJSON(c, http.StatusNotFound, err)
 			return
 		}
+		if !userInfo.IsAdmin() && (user.Role != defs.UserRole_Normal || user.LanguageGroupID != models.GroupID(userInfo) || (req.Role != "" && req.Role != defs.UserRole_Normal)) {
+			errJSON(c, 403, fmt.Errorf("只能管理本语系普通用户"))
+			return
+		}
+		if user.UserID == userInfo.GetUserID() && ((req.Role != "" && req.Role != user.Role) || (req.Status != nil && *req.Status == models.STATUS_BANED)) {
+			errJSON(c, 400, fmt.Errorf("不能撤销自己的管理权限"))
+			return
+		}
+		if req.Role != "" && req.Role != defs.UserRole_Admin && user.LanguageGroupID == "" {
+			errJSON(c, 400, fmt.Errorf("请先迁移到语系"))
+			return
+		}
+		user.SessionVersion++
 		if req.Role != "" {
 			user.Role = req.Role
 		}
 		if req.UserName != "" {
+			if err := utils.ValidateUserName(req.UserName); err != nil {
+				errJSON(c, 400, err)
+				return
+			}
 			user.UserName = req.UserName
 		}
 		if req.Email != "" {
+			if err := utils.ValidateEmail(req.Email); err != nil {
+				errJSON(c, 400, err)
+				return
+			}
 			user.Email = req.Email
 		}
 		if req.Status != nil {
+			if *req.Status != models.STATUS_NORMAL && *req.Status != models.STATUS_BANED {
+				errJSON(c, 400, fmt.Errorf("invalid status"))
+				return
+			}
 			user.Status = *req.Status
 		}
-		if err := db.Save(user).Error; err != nil {
+		if err := db.Transaction(func(tx *gorm.DB) error {
+			if err := tx.Save(user).Error; err != nil {
+				return err
+			}
+			return auditOrganization(tx, userInfo, user.LanguageGroupID, "user-update", fmt.Sprint(user.UserID), fmt.Sprintf("role=%s status=%d", user.Role, user.Status))
+		}); err != nil {
 			errJSON(c, http.StatusInternalServerError, err)
 			return
 		}
@@ -428,13 +504,21 @@ func UpdateUser(appInstance app.Application) gin.HandlerFunc {
 func CreateInvite(appInstance app.Application) gin.HandlerFunc {
 	return func(c *gin.Context) {
 		userInfo := common.GetUserInfo(c)
-		if !userInfo.IsAdmin() {
+		if !models.IsAccountManager(userInfo) {
 			errJSON(c, http.StatusForbidden, fmt.Errorf("only admin can create invite code"))
 			return
 		}
 		req := inviteCreateRequest{}
 		if err := c.ShouldBindJSON(&req); err != nil {
 			errJSON(c, http.StatusBadRequest, err)
+			return
+		}
+		if !userInfo.IsAdmin() {
+			req.LanguageGroupID = models.GroupID(userInfo)
+		}
+		var group models.LanguageGroup
+		if err := appInstance.GetDBManager().GetDefaultDB().Where("id = ? AND tenant_id = ?", req.LanguageGroupID, userInfo.GetTenantID()).First(&group).Error; err != nil {
+			errJSON(c, 400, fmt.Errorf("请选择所属语系"))
 			return
 		}
 		if req.Code == "" {
@@ -449,12 +533,13 @@ func CreateInvite(appInstance app.Application) gin.HandlerFunc {
 			expiresAt = &t
 		}
 		invite := &models.InviteCode{
-			Code:      req.Code,
-			TenantID:  userInfo.GetTenantID(),
-			CreatedBy: userInfo.GetUserID(),
-			MaxUses:   req.MaxUses,
-			ExpiresAt: expiresAt,
-			Comment:   req.Comment,
+			Code:            req.Code,
+			LanguageGroupID: req.LanguageGroupID,
+			TenantID:        userInfo.GetTenantID(),
+			CreatedBy:       userInfo.GetUserID(),
+			MaxUses:         req.MaxUses,
+			ExpiresAt:       expiresAt,
+			Comment:         req.Comment,
 		}
 		if err := appInstance.GetDBManager().GetDefaultDB().Create(invite).Error; err != nil {
 			errJSON(c, http.StatusInternalServerError, err)
@@ -467,12 +552,17 @@ func CreateInvite(appInstance app.Application) gin.HandlerFunc {
 func ListInvites(appInstance app.Application) gin.HandlerFunc {
 	return func(c *gin.Context) {
 		userInfo := common.GetUserInfo(c)
-		if !userInfo.IsAdmin() {
+		if !models.IsAccountManager(userInfo) {
 			errJSON(c, http.StatusForbidden, fmt.Errorf("only admin can list invite codes"))
 			return
 		}
 		now := time.Now()
-		if err := appInstance.GetDBManager().GetDefaultDB().
+		if err := appInstance.GetDBManager().GetDefaultDB().Scopes(func(db *gorm.DB) *gorm.DB {
+			if !userInfo.IsAdmin() {
+				return db.Where("language_group_id = ?", models.GroupID(userInfo))
+			}
+			return db
+		}).
 			Where("tenant_id = ? AND ((max_uses > 0 AND used_count >= max_uses) OR (expires_at IS NOT NULL AND expires_at <= ?))", userInfo.GetTenantID(), now).
 			Unscoped().
 			Delete(&models.InviteCode{}).Error; err != nil {
@@ -480,7 +570,12 @@ func ListInvites(appInstance app.Application) gin.HandlerFunc {
 			return
 		}
 		var invites []*models.InviteCode
-		if err := appInstance.GetDBManager().GetDefaultDB().
+		if err := appInstance.GetDBManager().GetDefaultDB().Scopes(func(db *gorm.DB) *gorm.DB {
+			if !userInfo.IsAdmin() {
+				return db.Where("language_group_id = ?", models.GroupID(userInfo))
+			}
+			return db
+		}).
 			Where("tenant_id = ? AND (max_uses <= 0 OR used_count < max_uses) AND (expires_at IS NULL OR expires_at > ?)", userInfo.GetTenantID(), now).
 			Order("created_at desc").
 			Find(&invites).Error; err != nil {
@@ -494,7 +589,7 @@ func ListInvites(appInstance app.Application) gin.HandlerFunc {
 func UpdateInvite(appInstance app.Application) gin.HandlerFunc {
 	return func(c *gin.Context) {
 		userInfo := common.GetUserInfo(c)
-		if !userInfo.IsAdmin() {
+		if !models.IsAccountManager(userInfo) {
 			errJSON(c, http.StatusForbidden, fmt.Errorf("only admin can update invite code"))
 			return
 		}
@@ -507,6 +602,10 @@ func UpdateInvite(appInstance app.Application) gin.HandlerFunc {
 		db := appInstance.GetDBManager().GetDefaultDB()
 		if err := db.Where(&models.InviteCode{ID: req.ID, TenantID: userInfo.GetTenantID()}).First(invite).Error; err != nil {
 			errJSON(c, http.StatusNotFound, err)
+			return
+		}
+		if !userInfo.IsAdmin() && invite.LanguageGroupID != models.GroupID(userInfo) {
+			errJSON(c, 403, fmt.Errorf("不能管理其他语系的邀请码"))
 			return
 		}
 		if req.Disabled != nil {
@@ -730,20 +829,10 @@ func canShare(ctx *app.Context, userInfo models.UserInfo, objType defs.RBACObj, 
 	if tenantID != userInfo.GetTenantID() {
 		return fmt.Errorf("permission denied")
 	}
-	if ownerID == userInfo.GetUserID() {
+	if dao.CanManageOwner(db, userInfo, ownerID) {
 		return nil
 	}
-	if ctx.GetApp().GetPermManager() == nil {
-		return fmt.Errorf("permission manager is not initialized")
-	}
-	ok, err := ctx.GetApp().GetPermManager().CheckPermission(userInfo.GetUserID(), objType, objID, defs.RBACActionEdit, userInfo.GetTenantID())
-	if err != nil {
-		return err
-	}
-	if !ok {
-		return fmt.Errorf("permission denied")
-	}
-	return nil
+	return fmt.Errorf("只有设备主人或上级管理员可修改共享授权")
 }
 
 func okJSON(c *gin.Context, data any) {
@@ -751,7 +840,7 @@ func okJSON(c *gin.Context, data any) {
 }
 
 func errJSON(c *gin.Context, status int, err error) {
-	c.JSON(http.StatusOK, common.Err(err.Error()))
+	c.JSON(status, common.Err(err.Error()))
 }
 
 func expandPermission(permission defs.RBACAction) []defs.RBACAction {

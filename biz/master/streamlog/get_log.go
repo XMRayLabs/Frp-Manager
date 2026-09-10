@@ -35,9 +35,9 @@ func getLogHander(c *gin.Context, appInstance app.Application) {
 	query := dao.NewQuery(app.NewContext(c, appInstance))
 	user := common.GetUserInfo(c)
 	key := ""
-	if node, err := query.GetClientByClientID(user, id); err == nil {
+	if node, err := query.GetClientByClientID(user, id); err == nil && dao.CanManageClient(app.NewContext(c, appInstance), user, id) == nil {
 		key = node.DeviceID
-	} else if server, err := query.GetServerByServerID(user, id); err == nil {
+	} else if server, err := query.GetServerByServerID(user, id); err == nil && user.IsAdmin() {
 		key = server.DeviceID
 	}
 	if key == "" {
@@ -75,8 +75,18 @@ func getLogHander(c *gin.Context, appInstance app.Application) {
 	c.Writer.Header().Set("Content-Encoding", "none")
 	c.Writer.Flush()
 
+	ticker := time.NewTicker(5 * time.Second)
+	defer ticker.Stop()
 	for {
 		select {
+		case <-ticker.C:
+			current, err := query.GetUserByUserID(user.GetUserID())
+			if err != nil || !current.Valid() || current.SessionVersion != user.GetSessionVersion() {
+				return
+			}
+			if !current.IsAdmin() && dao.CanManageClient(app.NewContext(c, appInstance), current, id) != nil {
+				return
+			}
 		case l := <-ch:
 			k, _ := json.Marshal(l)
 			if _, err := c.Writer.WriteString(string(k) + "\r\n"); err != nil {

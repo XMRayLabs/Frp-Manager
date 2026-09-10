@@ -54,6 +54,7 @@ func ConfigureRouter(appInstance app.Application, router *gin.Engine) {
 
 	v1 := api.Group("/v1", middleware.JWTAuth(appInstance), middleware.AuthCtx(appInstance), middleware.RBAC(appInstance))
 	{
+		permission.OrganizationRoutes(v1.Group("/organization"), appInstance)
 		userRouter := v1.Group("/user")
 		{
 			userRouter.POST("/password-status", user.PasswordStatus)

@@ -77,7 +77,7 @@ function TerminalContent() {
     return <TerminalAccessState title="正在加载账户信息" />
   }
 
-  if (userInfo.role !== 'admin') {
+  if (!userInfo.role) {
     return <TerminalAccessState title="权限不足，普通用户不能打开远程控制台。" />
   }
 

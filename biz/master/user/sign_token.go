@@ -26,6 +26,7 @@ func SignTokenHandler(ctx *app.Context, req *pb.SignTokenRequest) (*pb.SignToken
 		int64(expiresIn),
 		map[string]interface{}{
 			defs.UserIDKey:                   userInfo.GetUserID(),
+			"session_version":                userInfo.GetSessionVersion(),
 			defs.TokenPayloadKey_Permissions: permissions,
 		})
 	if err != nil {

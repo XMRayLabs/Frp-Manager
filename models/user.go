@@ -13,6 +13,7 @@ type User struct {
 }
 
 type UserInfo interface {
+	GetSessionVersion() int
 	GetUserID() int
 	GetUserIDStr() string
 	GetUserName() string
@@ -30,6 +31,8 @@ type UserInfo interface {
 var _ UserInfo = (*UserEntity)(nil)
 
 type UserEntity struct {
+	LanguageGroupID    string `json:"language_group_id" gorm:"index;not null;default:''"`
+	SessionVersion     int    `json:"-" gorm:"not null;default:0"`
 	MustChangePassword bool   `json:"must_change_password" gorm:"not null;default:false"`
 	UserID             int    `json:"user_id" gorm:"primaryKey"`
 	UserName           string `json:"user_name" gorm:"type:varchar(255);uniqueIndex;not null"`
@@ -84,6 +87,8 @@ func (u *UserEntity) GetToken() string {
 
 func (u *UserEntity) GetSafeUserInfo() UserEntity {
 	return UserEntity{
+		LanguageGroupID:    u.LanguageGroupID,
+		TenantID:           u.TenantID,
 		MustChangePassword: u.MustChangePassword,
 		UserID:             u.UserID,
 		UserName:           u.UserName,
@@ -110,3 +115,5 @@ func (u *UserEntity) IsAdmin() bool {
 func (u *User) TableName() string {
 	return "users"
 }
+
+func (u *UserEntity) GetSessionVersion() int { return u.SessionVersion }

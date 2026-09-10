@@ -46,8 +46,11 @@ type Config struct {
 		APIPort int `env:"API_PORT" env-default:"8999" env-description:"server api port"`
 	} `env-prefix:"SERVER_"`
 	DB struct {
-		Type string `env:"TYPE" env-default:"sqlite3" env-description:"db type, mysql or sqlite3 and so on"`
-		DSN  string `env:"DSN" env-default:"/data/data.db?_pragma=journal_mode(WAL)" env-description:"db dsn, for sqlite is path, other is dsn, look at https://github.com/go-sql-driver/mysql#dsn-data-source-name"`
+		MaxOpenConns           int    `env:"MAX_OPEN_CONNS" env-default:"20"`
+		MaxIdleConns           int    `env:"MAX_IDLE_CONNS" env-default:"5"`
+		ConnMaxLifetimeSeconds int    `env:"CONN_MAX_LIFETIME_SECONDS" env-default:"1800"`
+		Type                   string `env:"TYPE" env-default:"sqlite3" env-description:"db type: sqlite3, mysql, postgres"`
+		DSN                    string `env:"DSN" env-default:"/data/data.db?_pragma=journal_mode(WAL)" env-description:"db dsn, for sqlite is path, other is dsn, look at https://github.com/go-sql-driver/mysql#dsn-data-source-name"`
 	} `env-prefix:"DB_"`
 	Client struct {
 		EnrollmentAttempt     string `env:"ENROLLMENT_ATTEMPT" env-description:"unique ID for an explicit enrollment attempt; keep unchanged on restart"`

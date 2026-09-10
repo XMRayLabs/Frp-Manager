@@ -80,6 +80,7 @@ export const ProxyConfigList: React.FC<ProxyConfigListProps> = ({
   const [typeFilter, setTypeFilter] = React.useState<string>('all')
   const [statusFilter, setStatusFilter] = React.useState<string>('all')
   const [portSearch, setPortSearch] = React.useState('')
+  const [groupFilter,setGroupFilter] = React.useState('all')
   const [ownerFilter, setOwnerFilter] = React.useState('all')
   const globalRefetchTrigger = useStore($proxyTableRefetchTrigger)
 
@@ -153,13 +154,14 @@ export const ProxyConfigList: React.FC<ProxyConfigListProps> = ({
       .map((proxyConfig) => toTableRow(proxyConfig, statusByProxy[String(proxyConfig.id ?? 0)]))
       .filter((row) => typeFilter === 'all' || row.type === typeFilter)
       .filter((row) => statusFilter === 'all' || row.status === statusFilter)
+      .filter((row) => groupFilter === 'all' || ownersQuery.data?.owners.find(o=>o.id===ownersQuery.data?.resources[String(row.id)])?.group_id===groupFilter)
       .filter((row) => ownerFilter === 'all' || String(ownersQuery.data?.resources[String(row.id)]) === ownerFilter)
       .filter((row) => matchesPortSearch(portSearch, row.localPort, row.remotePort))
-  }, [allProxyConfigs, statusByProxy, typeFilter, statusFilter, portSearch, ownerFilter, ownersQuery.data])
+  }, [allProxyConfigs, statusByProxy, typeFilter, statusFilter, portSearch, ownerFilter, groupFilter, ownersQuery.data])
 
   React.useEffect(() => {
     setPagination((current) => ({ ...current, pageIndex: 0 }))
-  }, [Keyword, ClientID, ServerID, typeFilter, statusFilter, portSearch, ownerFilter])
+  }, [Keyword, ClientID, ServerID, typeFilter, statusFilter, portSearch, ownerFilter, groupFilter])
 
   const table = useReactTable({
     data: rows,
@@ -193,6 +195,7 @@ export const ProxyConfigList: React.FC<ProxyConfigListProps> = ({
       columns={proxyConfigColumnsDef}
       toolbar={
         <div className="flex flex-wrap items-center gap-2">
+          <select aria-label="所属语系筛选" className="h-9 rounded border bg-background px-3 text-sm" value={groupFilter} onChange={e=>{setGroupFilter(e.target.value);setOwnerFilter('all')}}><option value="all">全部语系</option>{Array.from(new Map(ownersQuery.data?.owners.filter(o=>o.group_id).map(o=>[o.group_id,o.group_name])).entries()).map(([id,name])=><option key={id} value={id}>{name}</option>)}</select>
           <OwnerFilter value={ownerFilter} onChange={setOwnerFilter} data={ownersQuery.data} loading={ownersQuery.isPending} error={ownersQuery.error} retry={() => { void ownersQuery.refetch() }} />
           <select className="h-9 rounded-md border bg-background px-3 text-sm" value={typeFilter} onChange={(e) => setTypeFilter(e.target.value)}>
             <option value="all">全部协议</option>

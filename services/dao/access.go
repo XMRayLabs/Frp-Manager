@@ -36,8 +36,11 @@ func CanAccessClient(ctx *app.Context, userInfo models.UserInfo, clientID string
 }
 
 func CanAccessServer(ctx *app.Context, userInfo models.UserInfo, serverID string, action defs.RBACAction) error {
-	if serverID == defs.DefaultServerID && userInfo.Valid() {
-		return nil
+	if action == defs.RBACActionView || action == defs.RBACActionRead {
+		return CanUseServer(ctx.GetApp().GetDBManager().GetDefaultDB(), userInfo, serverID)
+	}
+	if !userInfo.IsAdmin() {
+		return fmt.Errorf("仅网站管理员可管理服务端")
 	}
 	db := ctx.GetApp().GetDBManager().GetDefaultDB()
 	server := &models.Server{}
@@ -51,65 +54,69 @@ func CanAccessServer(ctx *app.Context, userInfo models.UserInfo, serverID string
 }
 
 func scopeOwnedOrShared(db *gorm.DB, ctx *app.Context, userInfo models.UserInfo, objType defs.RBACObj, idColumn string, action defs.RBACAction) *gorm.DB {
-	if userInfo.IsAdmin() {
-		return db.Where("tenant_id = ?", userInfo.GetTenantID())
-	}
-
-	sharedIDs := accessibleObjectIDs(ctx, userInfo, objType, action)
-	scope := db.Where("tenant_id = ? AND user_id = ?", userInfo.GetTenantID(), userInfo.GetUserID())
-	if len(sharedIDs) == 0 {
-		return scope
-	}
-
-	return db.Where(
-		db.Where("tenant_id = ? AND user_id = ?", userInfo.GetTenantID(), userInfo.GetUserID()).
-			Or(fmt.Sprintf("tenant_id = ? AND %s IN ?", idColumn), userInfo.GetTenantID(), sharedIDs),
-	)
+	return organizationScope(db, ctx, userInfo, objType, idColumn, action)
 }
-
 func scopeOwnedOrSharedUint(db *gorm.DB, ctx *app.Context, userInfo models.UserInfo, objType defs.RBACObj, idColumn string, action defs.RBACAction) *gorm.DB {
-	if userInfo.IsAdmin() {
-		return db.Where("tenant_id = ?", userInfo.GetTenantID())
+	return organizationScope(db, ctx, userInfo, objType, idColumn, action)
+}
+func scopeUsableServers(db *gorm.DB, u models.UserInfo) *gorm.DB {
+	if u == nil || !u.Valid() {
+		return db.Where("1 = 0")
 	}
-
-	sharedIDs := accessibleObjectIDs(ctx, userInfo, objType, action)
-	scope := db.Where("tenant_id = ? AND user_id = ?", uint32(userInfo.GetTenantID()), uint32(userInfo.GetUserID()))
-	if len(sharedIDs) == 0 {
-		return scope
+	if u.IsAdmin() {
+		return db.Where("tenant_id = ? OR server_id = ?", u.GetTenantID(), defs.DefaultServerID)
 	}
-
-	return db.Where(
-		db.Where("tenant_id = ? AND user_id = ?", uint32(userInfo.GetTenantID()), uint32(userInfo.GetUserID())).
-			Or(fmt.Sprintf("tenant_id = ? AND %s IN ?", idColumn), uint32(userInfo.GetTenantID()), sharedIDs),
-	)
+	assignments := db.Session(&gorm.Session{NewDB: true}).Model(&models.LanguageGroupServer{}).Select("server_id").Where("language_group_id = ? AND language_group_id <> ''", models.GroupID(u))
+	return db.Where("server_id IN (?)", assignments).Where("tenant_id = ? OR server_id = ?", u.GetTenantID(), defs.DefaultServerID)
 }
 
-func scopeUsableServers(db *gorm.DB, userInfo models.UserInfo) *gorm.DB {
-	return db.Where(
-		db.Where("tenant_id = ?", userInfo.GetTenantID()).
-			Or("server_id = ?", defs.DefaultServerID),
-	)
-}
-
-func canAccessResource(ctx *app.Context, userInfo models.UserInfo, objType defs.RBACObj, objID string, res ownedResource, action defs.RBACAction) error {
-	if res.tenantID != userInfo.GetTenantID() {
+func canAccessResource(ctx *app.Context, u models.UserInfo, obj defs.RBACObj, id string, res ownedResource, action defs.RBACAction) error {
+	if u == nil || !u.Valid() || res.tenantID != u.GetTenantID() {
 		return fmt.Errorf("permission denied")
 	}
-	if userInfo.IsAdmin() || res.userID == userInfo.GetUserID() {
+	db := ctx.GetApp().GetDBManager().GetDefaultDB()
+	if obj == defs.RBACObjServer {
+		if u.IsAdmin() {
+			return nil
+		}
+		if action == defs.RBACActionView || action == defs.RBACActionRead {
+			return CanUseServer(db, u, id)
+		}
+		return fmt.Errorf("仅网站管理员可管理服务端")
+	}
+	if CanManageOwner(db, u, res.userID) {
 		return nil
 	}
-	if ctx.GetApp().GetPermManager() == nil {
+	if obj != defs.RBACObjClient || action == defs.RBACActionDelete || action == defs.RBACActionShare {
 		return fmt.Errorf("permission denied")
 	}
-
-	ok, err := checkPermission(ctx, userInfo, objType, objID, action)
-	if err != nil {
+	var node models.Client
+	if err := db.Where("client_id = ?", id).First(&node).Error; err != nil {
 		return err
 	}
-	if !ok {
+	if node.OriginClientID != "" {
+		var parent models.Client
+		if err := db.Where("client_id = ?", node.OriginClientID).First(&parent).Error; err != nil {
+			return err
+		}
+		node = parent
+	}
+	var owner models.User
+	if err := db.Where("user_id = ?", res.userID).First(&owner).Error; err != nil {
+		return err
+	}
+	if models.GroupID(u) == "" || owner.LanguageGroupID != models.GroupID(u) || node.Private {
 		return fmt.Errorf("permission denied")
 	}
-	return nil
+	if groupShared(db, u) {
+		return nil
+	}
+	if ctx.GetApp().GetPermManager() != nil {
+		if ok, err := checkPermission(ctx, u, obj, id, action); err == nil && ok {
+			return nil
+		}
+	}
+	return fmt.Errorf("permission denied")
 }
 
 func grantOwnerPermissions(ctx *app.Context, userInfo models.UserInfo, objType defs.RBACObj, objID string) {

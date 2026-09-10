@@ -19,6 +19,7 @@ type Client struct {
 }
 
 type ClientEntity struct {
+	Private        bool   `json:"private" gorm:"not null;default:false"`
 	DeviceID       string `json:"-" gorm:"index"`
 	RuntimeID      string `json:"-"`
 	ClientID       string `json:"client_id" gorm:"uniqueIndex;not null;primaryKey"`

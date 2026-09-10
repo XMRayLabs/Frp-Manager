@@ -20,6 +20,8 @@ import (
 )
 
 func UpdateFrpcHander(c *app.Context, req *pb.UpdateFRPCRequest) (resp *pb.UpdateFRPCResponse, retErr error) {
+	models.NodeIdentityMu.Lock()
+	defer models.NodeIdentityMu.Unlock()
 	defer func() {
 		if recovered := recover(); recovered != nil {
 			logger.Logger(c).Errorf("update frpc panic, req: [%+v], panic: [%v]", req, recovered)
@@ -38,7 +40,6 @@ func UpdateFrpcHander(c *app.Context, req *pb.UpdateFRPCRequest) (resp *pb.Updat
 		userInfo    = common.GetUserInfo(c)
 	)
 	q := dao.NewQuery(c)
-	m := dao.NewMutation(c)
 
 	cliCfg, err := utils.LoadClientConfigNormal(content, true)
 	if err != nil {
@@ -56,7 +57,41 @@ func UpdateFrpcHander(c *app.Context, req *pb.UpdateFRPCRequest) (resp *pb.Updat
 		}, fmt.Errorf("cannot get client")
 	}
 
+	if err := dao.CanAccessClient(c, userInfo, reqClientID, defs.RBACActionEdit); err != nil {
+		return nil, err
+	}
 	cli := cliRecord.ClientEntity
+	if err := dao.CanUseServer(c.GetApp().GetDBManager().GetDefaultDB(), userInfo, serverID); err != nil {
+		return nil, err
+	}
+	if dao.CanManageClient(c, userInfo, reqClientID) != nil {
+		oldCfg, err := cli.GetConfigContent()
+		if err != nil {
+			if len(cli.ConfigContent) > 0 {
+				return nil, fmt.Errorf("客户端现有配置损坏，请联系管理员修复")
+			}
+			oldCfg = &v1.ClientConfig{}
+		}
+		for _, proxy := range cliCfg.Proxies {
+			raw, err := proxy.MarshalJSON()
+			if err != nil {
+				return nil, err
+			}
+			var body map[string]interface{}
+			if err := json.Unmarshal(raw, &body); err != nil {
+				return nil, err
+			}
+			if plugin, ok := body["plugin"].(map[string]interface{}); ok {
+				switch plugin["type"] {
+				case "http_proxy", "socks5":
+				default:
+					return nil, fmt.Errorf("此插件仅设备主人或上级管理员可设置")
+				}
+			}
+		}
+		cliCfg.ClientCommonConfig = oldCfg.ClientCommonConfig
+		req.FrpsUrl = nil
+	}
 
 	if cli.IsShadow {
 		cli, _, err = ChildClientForServer(c, serverID, cli)
@@ -156,13 +191,21 @@ func UpdateFrpcHander(c *app.Context, req *pb.UpdateFRPCRequest) (resp *pb.Updat
 		cli.FrpsUrl = urlToParse
 	}
 
-	cliCfg.User = userInfo.GetUserName()
+	owner, err := q.GetUserByUserID(cli.UserID)
+	if err != nil {
+		return nil, err
+	}
+	owner.Status = models.STATUS_NORMAL
+	if err := dao.CanUseServer(c.GetApp().GetDBManager().GetDefaultDB(), owner, serverID); err != nil {
+		return nil, err
+	}
+	cliCfg.User = owner.GetUserName()
 
 	if cliCfg.Metadatas == nil {
 		cliCfg.Metadatas = make(map[string]string)
 	}
 
-	cliCfg.Metadatas[defs.FRPAuthTokenKey] = userInfo.GetToken()
+	cliCfg.Metadatas[defs.FRPAuthTokenKey] = owner.GetToken()
 	cliCfg.Metadatas[defs.FRPClientIDKey] = reqClientID
 
 	newCfg := struct {
@@ -187,13 +230,7 @@ func UpdateFrpcHander(c *app.Context, req *pb.UpdateFRPCRequest) (resp *pb.Updat
 		cli.Comment = req.GetComment()
 	}
 
-	if err := m.UpdateClient(userInfo, cli); err != nil {
-		logger.Logger(c).WithError(err).Errorf("cannot update client, id: [%s]", cli.ClientID)
-		return nil, err
-	}
-
-	if err := m.RebuildProxyConfigFromClient(userInfo, &models.Client{ClientEntity: cli}); err != nil {
-		logger.Logger(c).WithError(err).Errorf("cannot rebuild proxy config from client, id: [%s]", cli.ClientID)
+	if err := dao.SaveTunnelConfig(c, userInfo, cli); err != nil {
 		return nil, err
 	}
 

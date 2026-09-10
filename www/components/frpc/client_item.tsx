@@ -1,3 +1,4 @@
+import { organization } from '@/api/organization'
 import { RenameNodeDialog } from '../base/rename-node-dialog'
 import { ColumnDef, Table, TableMeta } from '@tanstack/react-table'
 import { Eye, MoreHorizontal } from 'lucide-react'
@@ -49,6 +50,8 @@ export type ClientTableSchema = {
   runtimeStatus: 'online' | 'offline' | 'error' | 'paused' | 'unknown'
   ping: number
   secret: string
+  private?: boolean
+  ownerName?: string
   stopped: boolean
   ephemeral: boolean
   info?: string
@@ -70,7 +73,7 @@ export const columns: ColumnDef<ClientTableSchema>[] = [
       return <DataTableColumnHeader column={column} title={t('client.id')} />
     },
     cell: ({ row }) => {
-      return <ClientID client={row.original} />
+      return <div><ClientID client={row.original} /><p className="text-xs text-muted-foreground">{row.original.ownerName}{row.original.private ? " · 私有" : ""}</p></div>
     },
   },
   {
@@ -230,6 +233,7 @@ export const ClientSecret = ({ client }: { client: ClientTableSchema }) => {
   const [copyState, setCopyState] = React.useState<'idle' | 'success' | 'failed'>('idle')
   const startCommand = platformInfo ? ExecCommandStr('client', client, platformInfo) : ''
 
+  if (!client.secret) return <Badge variant="secondary">语系共享</Badge>
   const handleCopyStartCommand = async () => {
     if (!platformInfo) {
       setCopyState('failed')
@@ -394,9 +398,11 @@ export const ClientActions: React.FC<ClientItemProps> = ({ client, table }) => {
         </DropdownMenuTrigger>
         <DropdownMenuContent align="end">
           <DropdownMenuLabel>{t('client.actions_menu.title')}</DropdownMenuLabel>
-          <DropdownMenuItem onSelect={() => setRenameOpen(true)}>修改名称</DropdownMenuItem>
+          {!!client.secret && <DropdownMenuItem onSelect={() => { void organization('clients/privacy', {client_id:client.id,private:!client.private}).then(()=>{$clientTableRefetchTrigger.set(Date.now());toast.success('共享范围已更新')}).catch(e=>toast.error(String(e))) }}>{client.private?'允许参与语系共享':'设为私有设备'}</DropdownMenuItem>}
+          <DropdownMenuItem disabled={!client.secret} onSelect={() => setRenameOpen(true)}>修改名称</DropdownMenuItem>
 
           <DropdownMenuItem
+            disabled={!client.secret}
             onClick={async () => {
               try {
                 if (platformInfo) {
@@ -447,7 +453,7 @@ export const ClientActions: React.FC<ClientItemProps> = ({ client, table }) => {
           >
             {t('client.actions_menu.realtime_log')}
           </DropdownMenuItem>
-          {isAdmin && (
+          {!!client.secret && (
             <DropdownMenuItem
               onClick={() => {
                 router.push({
@@ -480,7 +486,7 @@ export const ClientActions: React.FC<ClientItemProps> = ({ client, table }) => {
             </DropdownMenuItem>
           )}
           <DialogTrigger asChild>
-            <DropdownMenuItem className="text-destructive">{t('client.actions_menu.delete')}</DropdownMenuItem>
+            <DropdownMenuItem disabled={!client.secret} className="text-destructive">{t('client.actions_menu.delete')}</DropdownMenuItem>
           </DialogTrigger>
         </DropdownMenuContent>
       </DropdownMenu>

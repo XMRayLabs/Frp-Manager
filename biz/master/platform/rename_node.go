@@ -10,6 +10,7 @@ import (
 	"github.com/Sakurame1/frp-manager/defs"
 	"github.com/Sakurame1/frp-manager/models"
 	"github.com/Sakurame1/frp-manager/services/app"
+	"github.com/Sakurame1/frp-manager/services/dao"
 	"github.com/gin-gonic/gin"
 	"gorm.io/gorm"
 	"gorm.io/gorm/clause"
@@ -71,7 +72,7 @@ func renameNode(ctx *app.Context, kind, oldID, newID string) error {
 			}
 			owner, tenant = server.UserID, server.TenantID
 		}
-		if tenant != user.GetTenantID() || (!user.IsAdmin() && owner != user.GetUserID()) {
+		if tenant != user.GetTenantID() || (!dao.CanManageOwner(tx, user, owner) || (kind == "server" && !user.IsAdmin())) {
 			return fmt.Errorf("只有节点所有者或管理员可以修改名称")
 		}
 		if oldID == newID {
@@ -120,7 +121,7 @@ func renameNode(ctx *app.Context, kind, oldID, newID string) error {
 				refs = append(refs, struct{ table, column string }{table, "client_id"}, struct{ table, column string }{table, "origin_client_id"})
 			}
 		} else {
-			for _, table := range []string{"clients", "proxy_config", "proxy_stats", "history_proxy_stats"} {
+			for _, table := range []string{"clients", "proxy_config", "proxy_stats", "history_proxy_stats", "language_group_servers"} {
 				refs = append(refs, struct{ table, column string }{table, "server_id"})
 			}
 		}

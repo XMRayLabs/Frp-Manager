@@ -47,14 +47,18 @@ func (m *networkMutation) UpdateNetwork(userInfo models.UserInfo, id uint, netwo
 		return fmt.Errorf("invalid network id or entity")
 	}
 	// scope
-	network.UserId = uint32(userInfo.GetUserID())
+	existing, err := NewQuery(m.ctx).GetNetworkByID(userInfo, id)
+	if err != nil {
+		return err
+	}
+	network.UserId = existing.UserId
 	network.TenantId = uint32(userInfo.GetTenantID())
 
 	db := m.ctx.GetApp().GetDBManager().GetDefaultDB()
+	db = accountScope(db, userInfo)
 	return db.Where(&models.Network{
 		Model: gorm.Model{ID: id},
 		NetworkEntity: &models.NetworkEntity{
-			UserId:   uint32(userInfo.GetUserID()),
 			TenantId: uint32(userInfo.GetTenantID()),
 		},
 	}).Save(&models.Network{
@@ -68,10 +72,10 @@ func (m *networkMutation) DeleteNetwork(userInfo models.UserInfo, id uint) error
 		return fmt.Errorf("invalid network id")
 	}
 	db := m.ctx.GetApp().GetDBManager().GetDefaultDB()
+	db = accountScope(db, userInfo)
 	return db.Unscoped().Where(&models.Network{
 		Model: gorm.Model{ID: id},
 		NetworkEntity: &models.NetworkEntity{
-			UserId:   uint32(userInfo.GetUserID()),
 			TenantId: uint32(userInfo.GetTenantID()),
 		},
 	}).Delete(&models.Network{}).Error
@@ -82,11 +86,11 @@ func (q *networkQuery) GetNetworkByID(userInfo models.UserInfo, id uint) (*model
 		return nil, fmt.Errorf("invalid network id")
 	}
 	db := q.ctx.GetApp().GetDBManager().GetDefaultDB()
+	db = accountScope(db, userInfo)
 	var n models.Network
 	if err := db.Where(&models.Network{
 		Model: gorm.Model{ID: id},
 		NetworkEntity: &models.NetworkEntity{
-			UserId:   uint32(userInfo.GetUserID()),
 			TenantId: uint32(userInfo.GetTenantID()),
 		},
 	}).First(&n).Error; err != nil {
@@ -100,10 +104,10 @@ func (q *networkQuery) ListNetworks(userInfo models.UserInfo, page, pageSize int
 		return nil, fmt.Errorf("invalid page or page size")
 	}
 	db := q.ctx.GetApp().GetDBManager().GetDefaultDB()
+	db = accountScope(db, userInfo)
 	var list []*models.Network
 	offset := (page - 1) * pageSize
 	if err := db.Where(&models.Network{NetworkEntity: &models.NetworkEntity{
-		UserId:   uint32(userInfo.GetUserID()),
 		TenantId: uint32(userInfo.GetTenantID()),
 	}}).Offset(offset).Limit(pageSize).Find(&list).Error; err != nil {
 		return nil, err
@@ -116,10 +120,10 @@ func (q *networkQuery) ListNetworksWithKeyword(userInfo models.UserInfo, page, p
 		return nil, fmt.Errorf("invalid page or page size or keyword")
 	}
 	db := q.ctx.GetApp().GetDBManager().GetDefaultDB()
+	db = accountScope(db, userInfo)
 	var list []*models.Network
 	offset := (page - 1) * pageSize
 	if err := db.Where(&models.Network{NetworkEntity: &models.NetworkEntity{
-		UserId:   uint32(userInfo.GetUserID()),
 		TenantId: uint32(userInfo.GetTenantID()),
 	}}).Where("name like ? OR cidr like ?", "%"+keyword+"%", "%"+keyword+"%").Offset(offset).Limit(pageSize).Find(&list).Error; err != nil {
 		return nil, err
@@ -130,8 +134,8 @@ func (q *networkQuery) ListNetworksWithKeyword(userInfo models.UserInfo, page, p
 func (q *networkQuery) CountNetworks(userInfo models.UserInfo) (int64, error) {
 	var count int64
 	db := q.ctx.GetApp().GetDBManager().GetDefaultDB()
+	db = accountScope(db, userInfo)
 	if err := db.Model(&models.Network{}).Where(&models.Network{NetworkEntity: &models.NetworkEntity{
-		UserId:   uint32(userInfo.GetUserID()),
 		TenantId: uint32(userInfo.GetTenantID()),
 	}}).Count(&count).Error; err != nil {
 		return 0, err
@@ -142,8 +146,8 @@ func (q *networkQuery) CountNetworks(userInfo models.UserInfo) (int64, error) {
 func (q *networkQuery) CountNetworksWithKeyword(userInfo models.UserInfo, keyword string) (int64, error) {
 	var count int64
 	db := q.ctx.GetApp().GetDBManager().GetDefaultDB()
+	db = accountScope(db, userInfo)
 	if err := db.Model(&models.Network{}).Where(&models.Network{NetworkEntity: &models.NetworkEntity{
-		UserId:   uint32(userInfo.GetUserID()),
 		TenantId: uint32(userInfo.GetTenantID()),
 	}}).Where("name like ? OR cidr like ?", "%"+keyword+"%", "%"+keyword+"%").Count(&count).Error; err != nil {
 		return 0, err

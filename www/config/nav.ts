@@ -36,6 +36,7 @@ export const getNavItems = (t: (key: string) => string, role?: string) => [
         : []),
     ],
   },
+  ...(['admin', 'group_admin'].includes(role ?? '') ? [{ title: '语系管理', url: '/organization', icon: ShieldCheck }] : []),
   ...(role === 'admin' ? [{ title: '权限管理', url: '/admin-permissions', icon: ShieldCheck }] : []),
   { title: '面板设置', url: '/platform-settings', icon: Settings },
 ]

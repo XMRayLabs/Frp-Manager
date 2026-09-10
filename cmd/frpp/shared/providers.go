@@ -140,8 +140,15 @@ func NewDBManager(ctx *app.Context, appInstance app.Application) app.DBManager {
 		logger.Logger(ctx).Panicf("currently unsupported database type: %s", appInstance.GetConfig().DB.Type)
 	}
 
+	cfg := appInstance.GetConfig()
+	if err := models.ConfigureDBPool(mgr.GetDefaultDB(), cfg.DB.MaxOpenConns, cfg.DB.MaxIdleConns, time.Duration(cfg.DB.ConnMaxLifetimeSeconds)*time.Second); err != nil {
+		logger.Logger(ctx).Panic(err)
+	}
 	memoryDB, err := gorm.Open(sqlite.Open(":memory:"), &gorm.Config{})
 	if err != nil {
+		logger.Logger(ctx).Panic(err)
+	}
+	if err := models.ConfigureDBPool(memoryDB, 1, 1, 0); err != nil {
 		logger.Logger(ctx).Panic(err)
 	}
 	appInstance.GetDBManager().SetDB(defs.DBTypeSQLite3, defs.DBRoleRam, memoryDB)

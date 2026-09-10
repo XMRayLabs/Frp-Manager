@@ -47,6 +47,7 @@ func UpdateUserInfoHander(c *app.Context, req *pb.UpdateUserInfoRequest) (*pb.Up
 			return nil, err
 		}
 		newUserEntity.Password = hashedPassword
+		newUserEntity.SessionVersion++
 	}
 
 	if newUserInfo.GetUserName() != "" {

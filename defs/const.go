@@ -110,12 +110,13 @@ const (
 )
 
 const (
-	UserRole_Admin  = "admin"
-	UserRole_Normal = "normal"
-	CapFileName     = "workerd.capnp"
-	WorkerInfoPath  = "workers"
-	WorkerCodePath  = "src"
-	DBTypeSqlite    = "sqlite"
+	UserRole_GroupAdmin = "group_admin"
+	UserRole_Admin      = "admin"
+	UserRole_Normal     = "normal"
+	CapFileName         = "workerd.capnp"
+	WorkerInfoPath      = "workers"
+	WorkerCodePath      = "src"
+	DBTypeSqlite        = "sqlite"
 
 	DefaultHostName       = "127.0.0.1"
 	DefaultNodeName       = "default"

@@ -50,7 +50,7 @@ func UpgradeFrppHandler(ctx *app.Context, req *pb.UpgradeFrppRequest) (*pb.Upgra
 		go func() {
 			defer wg.Done()
 
-			_, err := dao.NewQuery(ctx).GetClientByClientID(userInfo, clientId)
+			err := dao.CanManageClient(ctx, userInfo, clientId)
 			if err != nil {
 				mu.Lock()
 				if errOnce == nil {

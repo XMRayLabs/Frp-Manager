@@ -14,10 +14,11 @@ type WireGuard struct {
 	gorm.Model
 	*WireGuardEntity
 
-	Client  *Client  `json:"client,omitempty" gorm:"foreignKey:ClientID;references:ClientID"`
+	Client  *Client  `json:"client,omitempty" gorm:"belongsTo:Client;foreignKey:ClientID;references:ClientID"`
 	Network *Network `json:"network,omitempty" gorm:"foreignKey:NetworkID;references:ID"`
 
-	AdvertisedEndpoints []*Endpoint      `json:"advertised_endpoints,omitempty" gorm:"foreignKey:WireGuardID;constraint:OnUpdate:CASCADE,OnDelete:CASCADE;"`
+	// Endpoints may be attached directly to a client (WireGuardID=0).
+	AdvertisedEndpoints []*Endpoint      `json:"advertised_endpoints,omitempty" gorm:"foreignKey:WireGuardID;constraint:-"`
 	WireGuardLinks      []*WireGuardLink `json:"wireguard_links,omitempty" gorm:"foreignKey:FromWireGuardID;references:ID"`
 }
 
@@ -200,8 +201,8 @@ type Endpoint struct {
 	gorm.Model
 	*EndpointEntity
 
-	WireGuard *WireGuard `json:"wireguard,omitempty" gorm:"foreignKey:WireGuardID;references:ID"`
-	Client    *Client    `json:"client,omitempty" gorm:"foreignKey:ClientID;references:ClientID"`
+	WireGuard *WireGuard `json:"wireguard,omitempty" gorm:"foreignKey:WireGuardID;references:ID;constraint:-"`
+	Client    *Client    `json:"client,omitempty" gorm:"belongsTo:Client;foreignKey:ClientID;references:ClientID"`
 }
 
 type EndpointEntity struct {

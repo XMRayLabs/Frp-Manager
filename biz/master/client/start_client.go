@@ -36,6 +36,16 @@ func StartFRPCHandler(ctx *app.Context, req *pb.StartFRPCRequest) (*pb.StartFRPC
 
 	client := cli.ClientEntity
 
+	if client.ServerID != "" {
+		owner, err := dao.NewQuery(ctx).GetUserByUserID(client.UserID)
+		if err != nil {
+			return nil, err
+		}
+		owner.Status = 1
+		if err := dao.CanUseServer(ctx.GetApp().GetDBManager().GetDefaultDB(), owner, client.ServerID); err != nil {
+			return nil, err
+		}
+	}
 	client.Stopped = false
 
 	if err = dao.NewMutation(ctx).UpdateClient(userInfo, client); err != nil {

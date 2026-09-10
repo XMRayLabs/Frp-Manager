@@ -60,6 +60,7 @@ func BuildCommand(fs embed.FS) *cobra.Command {
 		NewUpgradeCmd(cfg),
 		NewUpgradeWorkerCmd(),
 		NewVersionCmd(),
+		NewMigrateDatabaseCmd(cfg),
 	)
 }
 

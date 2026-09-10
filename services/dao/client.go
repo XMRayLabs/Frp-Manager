@@ -193,6 +193,16 @@ func (q *clientQuery) GetClientByOriginClientID(originClientID string) (*models.
 func (m *clientMutation) CreateClient(userInfo models.UserInfo, client *models.ClientEntity) error {
 	client.UserID = userInfo.GetUserID()
 	client.TenantID = userInfo.GetTenantID()
+	if client.OriginClientID != "" {
+		parent, err := NewQuery(m.ctx).GetClientByClientID(userInfo, client.OriginClientID)
+		if err != nil {
+			return err
+		}
+		if err := CanAccessClient(m.ctx, userInfo, parent.ClientID, defs.RBACActionEdit); err != nil {
+			return err
+		}
+		client.UserID, client.TenantID, client.Private = parent.UserID, parent.TenantID, parent.Private
+	}
 	c := &models.Client{
 		ClientEntity: client,
 	}
@@ -205,6 +215,9 @@ func (m *clientMutation) CreateClient(userInfo models.UserInfo, client *models.C
 }
 
 func (m *clientMutation) DeleteClient(userInfo models.UserInfo, clientID string) error {
+	if err := CanManageClient(m.ctx, userInfo, clientID); err != nil {
+		return err
+	}
 	models.NodeIdentityMu.Lock()
 	defer models.NodeIdentityMu.Unlock()
 	if clientID == "" {
@@ -256,6 +269,7 @@ func (m *clientMutation) UpdateClient(userInfo models.UserInfo, client *models.C
 	if err != nil {
 		return err
 	}
+	client.Private = old.Private
 	client.DeviceID = old.DeviceID
 	client.RuntimeID = old.RuntimeID
 	client.UserID = old.UserID

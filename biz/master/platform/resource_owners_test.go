@@ -16,7 +16,7 @@ func TestResourceOwnersUseDatabaseOwnershipAndVisibility(t *testing.T) {
 	if err != nil {
 		t.Fatal(err)
 	}
-	if err = db.AutoMigrate(&models.User{}, &models.Client{}, &models.ProxyConfig{}); err != nil {
+	if err = db.AutoMigrate(&models.LanguageGroup{}, &models.User{}, &models.Client{}, &models.ProxyConfig{}); err != nil {
 		t.Fatal(err)
 	}
 	for _, u := range []*models.UserEntity{{UserID: 1, TenantID: 1, UserName: "admin", Email: "admin@test.de"}, {UserID: 2, TenantID: 1, UserName: "ig01", Email: "ig01@test.de"}, {UserID: 3, TenantID: 2, UserName: "hidden", Email: "hidden@test.de"}} {

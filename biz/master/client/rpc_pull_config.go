@@ -39,7 +39,7 @@ func RPCPullConfig(ctx *app.Context, req *pb.PullClientConfigReq) (*pb.PullClien
 		clientIDs = lo.Map(proxies, func(p *models.ProxyConfig, _ int) string { return p.ClientID })
 	}
 
-	if cli.Stopped && cli.IsShadow {
+	if cli.Stopped {
 		return &pb.PullClientConfigResp{
 			Client: &pb.Client{
 				Id:      lo.ToPtr(cli.ClientID),

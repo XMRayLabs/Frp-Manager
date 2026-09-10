@@ -31,6 +31,11 @@ func newWorkerMutation(base *mutationImpl) WorkerMutation { return &workerMutati
 func (m *workerMutation) CreateWorker(userInfo models.UserInfo, worker *models.Worker) error {
 	db := m.ctx.GetApp().GetDBManager().GetDefaultDB()
 
+	for _, node := range worker.Clients {
+		if err := CanManageClient(m.ctx, userInfo, node.ClientID); err != nil {
+			return err
+		}
+	}
 	worker.UserId = uint32(userInfo.GetUserID())
 	worker.TenantId = uint32(userInfo.GetTenantID())
 
@@ -82,12 +87,17 @@ func (m *workerMutation) UpdateWorker(userInfo models.UserInfo, worker *models.W
 	}, defs.RBACActionEdit); err != nil {
 		return err
 	}
+	for _, node := range worker.Clients {
+		if err := CanManageClient(m.ctx, userInfo, node.ClientID); err != nil {
+			return err
+		}
+	}
 	worker.UserId = old.UserId
 	worker.TenantId = old.TenantId
 
 	if err := db.Unscoped().Model(&models.Worker{
 		WorkerEntity: &models.WorkerEntity{
-			ID:       worker.ID,
+			ID: worker.ID,
 		},
 	}).Association("Clients").Unscoped().Clear(); err != nil {
 		return err
