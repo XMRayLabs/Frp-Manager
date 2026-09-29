@@ -31,6 +31,9 @@ GUI 版本内部仍使用同一个 Go 客户端核心。GUI 适合人工管理�
 | Linux x64 | 不需要 GUI | [完整二进制](https://github.com/XMRayLabs/Frp-Manager/releases/latest/download/frp-manager-linux-amd64) |
 | Linux ARM64 | 不需要 GUI | [完整二进制](https://github.com/XMRayLabs/Frp-Manager/releases/latest/download/frp-manager-linux-arm64) |
 | Android ARM64 | [APK](https://github.com/XMRayLabs/Frp-Manager/releases/latest/download/frp-manager-client-android.apk) | APK 已内置核心 |
+| Android ARMv7（32 位） | [APK](https://github.com/XMRayLabs/Frp-Manager/releases/download/v1.1.0/frp-manager-client-android-armv7.apk) | APK 已内置核心；三星 A13 实测可用 |
+
+ARMv7 下载项为 1.1.0 的补充产物，保留已验证 APK 的原始字节和签名。应用版本标识为 `1.1.0-armv7-test`，使用调试签名，并非发布者正式签名。不同签名的旧包可能需要先备份连接信息、卸载后再安装。[ARMv7 校验文件](https://github.com/XMRayLabs/Frp-Manager/releases/download/v1.1.0/SHA256SUMS-client-android-armv7.txt)
 
 [查看所有版本和 SHA256 文件](https://github.com/XMRayLabs/Frp-Manager/releases/latest)
 
@@ -171,7 +174,7 @@ macOS GUI 会把守护进程核心安装到 `/usr/local/libexec/frp-manager/frpp
 
 ### Android 图形客户端
 
-在 ARM64 设备安装 APK，新建或导入 Profile 后点击 **Install / Apply**。内置核心会在 Android 前台服务中
+根据系统架构选择 ARM64 或 ARMv7（32 位）APK，新建或导入 Profile 后点击 **Install / Apply**。内置核心会在 Android 前台服务中
 运行，连接期间显示常驻系统通知。点击 **Stop** 会关闭服务并禁用开机恢复；再次点击 **Start** 或
 **Install / Apply** 会重新启用。更新 APK 时必须使用相同的固定签名密钥。
 

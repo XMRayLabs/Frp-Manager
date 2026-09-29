@@ -30,6 +30,9 @@ containers, and automation. Use the GUI when an operator needs profile switching
 | Linux x64 | Not needed | [Binary](https://github.com/XMRayLabs/Frp-Manager/releases/latest/download/frp-manager-linux-amd64) |
 | Linux ARM64 | Not needed | [Binary](https://github.com/XMRayLabs/Frp-Manager/releases/latest/download/frp-manager-linux-arm64) |
 | Android ARM64 | [APK](https://github.com/XMRayLabs/Frp-Manager/releases/latest/download/frp-manager-client-android.apk) | Included in APK |
+| Android ARMv7 (32-bit) | [APK](https://github.com/XMRayLabs/Frp-Manager/releases/download/v1.1.0/frp-manager-client-android-armv7.apk) | Core included; tested on Samsung A13 |
+
+The ARMv7 download supplements 1.1.0 and preserves the verified APK unchanged. Its app version remains `1.1.0-armv7-test` and it uses a debug signature, not a production signing key. A differently signed installation may need removal after backing up connection settings. [ARMv7 checksums](https://github.com/XMRayLabs/Frp-Manager/releases/download/v1.1.0/SHA256SUMS-client-android-armv7.txt)
 
 [All latest assets and SHA256 files](https://github.com/XMRayLabs/Frp-Manager/releases/latest)
 
@@ -134,7 +137,7 @@ SHA256 matches the Release checksum. Signed/notarized builds open normally.
 
 ### Android GUI
 
-Install the ARM64 APK, create or import a Client profile, and select **Install / Apply**. Android runs the bundled
+Install the APK matching your Android ABI (ARM64 or ARMv7 32-bit), create or import a Client profile, and select **Install / Apply**. Android runs the bundled
 core as a foreground service and keeps a persistent system notification while connected. **Stop** disables restart
 after reboot; **Start** or **Install / Apply** enables it again. Android updates must install a newer APK signed with
 the same persistent key.
