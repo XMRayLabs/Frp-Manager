@@ -1,4 +1,14 @@
 {
+  "node_upgrade": {
+    "title": "Upgrade core",
+    "description": "Send an upgrade request to {{id}}. The device service will restart and tunnels may briefly disconnect.",
+    "version": "Target version",
+    "details": "Defaults to the panel version; latest is also supported. The device downloads the official core, verifies SHA256, backs up, replaces and restarts it. Check the reported version after reconnection.",
+    "legacy_server": "Older servers may require one manual update before accepting this command. For Docker deployments, update the container image.",
+    "confirm": "Send upgrade request",
+    "accepted": "Device accepted the request. Verify the version after it reconnects.",
+    "failed": "Upgrade request was not accepted"
+},
   "app": {
     "title": "frp-manager",
     "subtitle": "FRP Tunnel Panel",

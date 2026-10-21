@@ -412,7 +412,7 @@ func TestAnonymousCannotReachDeviceExecutionEndpoints(t *testing.T) {
 	r := gin.New()
 	r.Use(middleware.SecurityHeaders())
 	masterapi.ConfigureRouter(a, r)
-	for _, path := range []string{"/api/v1/client/install_workerd", "/api/v1/client/upgrade", "/api/v1/worker/create", "/api/v1/worker/redeploy"} {
+	for _, path := range []string{"/api/v1/client/install_workerd", "/api/v1/client/upgrade", "/api/v1/server/upgrade", "/api/v1/worker/create", "/api/v1/worker/redeploy"} {
 		rec := request(r, path, `{}`, "", "", "application/json", false)
 		if rec.Code != 401 {
 			t.Fatal("anonymous endpoint not denied", path, rec.Code)

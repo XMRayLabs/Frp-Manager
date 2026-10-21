@@ -36,6 +36,12 @@ ARM64 and ARMv7 packages share the same product version; architecture is shown i
 
 [All latest assets and SHA256 files](https://github.com/XMRayLabs/Frp-Manager/releases/latest)
 
+## Remote Core Upgrades
+
+Use **Upgrade core** in the client or standalone server action menu to send an official-version upgrade request to an online device. The device verifies SHA256, backs up and replaces the core, then restarts. Check its reported version after it reconnects. Client upgrades require owner or administrative management permissions; server upgrades require the site administrator.
+
+Older standalone servers must be updated manually to 1.1.5 or later once before they can accept these requests. Update Android through its APK and the panel's embedded server through the Docker image.
+
 ## Install The Management Panel
 
 Requirements: Linux, Docker Engine, Docker Compose v2, and a public domain name.

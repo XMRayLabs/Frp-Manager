@@ -39,6 +39,7 @@ import { $serverTableRefetchTrigger } from '@/store/refetch-trigger'
 import { DataTableColumnHeader } from '../base/column_header'
 import { copyText } from '@/lib/clipboard'
 import { NodeInstallGuide } from '../base/node-install-guide'
+import { ClientUpgradeDialog } from '../base/client_upgrade_dialog'
 
 export type ServerTableSchema = {
   id: string
@@ -279,6 +280,7 @@ export interface ServerItemProps {
 export const ServerActions: React.FC<ServerItemProps> = ({ server, table }) => {
   const { t } = useTranslation()
   const [renameOpen, setRenameOpen] = React.useState(false)
+  const [upgradeOpen, setUpgradeOpen] = React.useState(false)
   const router = useRouter()
   const platformInfo = useStore($platformInfo)
   const userInfo = useStore($userInfo)
@@ -310,6 +312,8 @@ export const ServerActions: React.FC<ServerItemProps> = ({ server, table }) => {
   return (
     <>
       <RenameNodeDialog kind="server" id={server.id} open={renameOpen} onOpenChange={setRenameOpen} />
+      <ClientUpgradeDialog kind="server" clientId={server.id} open={upgradeOpen} onOpenChange={setUpgradeOpen}
+        defaultVersion={platformInfo?.version || 'latest'} onDispatched={() => $serverTableRefetchTrigger.set(Date.now())} />
     <Dialog>
       <DropdownMenu>
         <DropdownMenuTrigger asChild>
@@ -364,6 +368,9 @@ export const ServerActions: React.FC<ServerItemProps> = ({ server, table }) => {
               {t('server.actions_menu.remote_terminal')}
             </DropdownMenuItem>
           )}
+          {isAdmin && server.id !== 'default' && <DropdownMenuItem
+            disabled={!server.secret || server.runtimeStatus === 'offline' || server.runtimeStatus === 'unknown'}
+            onSelect={() => setUpgradeOpen(true)}>{t('node_upgrade.title')}</DropdownMenuItem>}
           {isAdmin && (
             <DialogTrigger asChild>
               <DropdownMenuItem className="text-destructive">{t('server.actions_menu.delete')}</DropdownMenuItem>

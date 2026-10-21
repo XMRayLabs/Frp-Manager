@@ -1,4 +1,14 @@
 {
+  "node_upgrade": {
+    "title": "升級核心",
+    "description": "向 {{id}} 傳送升級請求。設備服務會重新啟動，隧道可能短暫中斷。",
+    "version": "目標版本",
+    "details": "預設與面板版本一致，也可填寫 latest。設備下載官方核心、驗證 SHA256、備份替換並重啟；重新上線後請確認版本。",
+    "legacy_server": "舊服務端可能需要先手動更新一次才能接受指令。Docker 部署請更新容器映像。",
+    "confirm": "傳送升級請求",
+    "accepted": "設備已接受請求，請等待重新上線後確認版本",
+    "failed": "設備未接受升級請求"
+},
   "app": {
     "title": "frp-manager",
     "subtitle": "FRP 隧道面板",

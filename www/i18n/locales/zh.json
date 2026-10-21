@@ -1,4 +1,14 @@
 {
+  "node_upgrade": {
+    "title": "升级内核",
+    "description": "向 {{id}} 发送升级请求。升级会重启设备服务，隧道可能短暂中断。",
+    "version": "目标版本",
+    "details": "默认与当前面板版本一致，也可填写 latest。设备将下载官方内核、校验 SHA256、备份替换并重启；重新上线后可查看新版本。",
+    "legacy_server": "旧服务端若提示不支持此指令，需要先手动升级一次。Docker 部署请更新容器镜像。",
+    "confirm": "发送升级请求",
+    "accepted": "设备已接受升级请求，请等待重新上线后核对版本",
+    "failed": "升级请求未被接受"
+},
   "app": {
     "title": "frp-manager",
     "subtitle": "FRP 隧道面板",

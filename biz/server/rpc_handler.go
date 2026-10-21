@@ -5,6 +5,7 @@ import (
 	"fmt"
 	"runtime/debug"
 
+	bizupgrade "github.com/Sakurame1/frp-manager/biz/common/upgrade"
 	"github.com/Sakurame1/frp-manager/conf"
 	"github.com/Sakurame1/frp-manager/pb"
 	"github.com/Sakurame1/frp-manager/services/app"
@@ -23,6 +24,8 @@ func HandleServerMessage(appInstance app.Application, req *pb.ServerMessage) *pb
 	logger.Logger(ctx).Infof("server message received, event: [%s], session: [%s]", req.GetEvent(), req.GetSessionId())
 
 	switch req.Event {
+	case pb.Event_EVENT_UPGRADE_FRPP:
+		return app.WrapperServerMsg(appInstance, req, bizupgrade.RemoteUpgrade)
 	case pb.Event_EVENT_UPDATE_FRPS:
 		return app.WrapperServerMsg(appInstance, req, UpdateFrpsHander)
 	case pb.Event_EVENT_REMOVE_FRPS:

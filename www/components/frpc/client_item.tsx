@@ -381,8 +381,7 @@ export const ClientActions: React.FC<ClientItemProps> = ({ client, table }) => {
         open={upgradeDialogOpen}
         onOpenChange={setUpgradeDialogOpen}
         clientId={client.id}
-        defaultUseGithubProxy={false}
-        defaultServiceName="frpp"
+        defaultVersion={platformInfo?.version || 'latest'}
         onDispatched={() => {
           $clientTableRefetchTrigger.set(Math.random())
         }}
@@ -466,14 +465,9 @@ export const ClientActions: React.FC<ClientItemProps> = ({ client, table }) => {
             </DropdownMenuItem>
           )}
           <DropdownMenuSeparator />
-          <DropdownMenuItem
-            onClick={(e) => {
-              e.preventDefault()
-              e.stopPropagation()
-              setUpgradeDialogOpen(true)
-            }}
-          >
-            {t('client.actions_menu.upgrade')}
+          <DropdownMenuItem disabled={!client.secret || client.clientStatus?.status === ClientStatus_Status.OFFLINE || !client.clientStatus}
+            onSelect={() => setUpgradeDialogOpen(true)}>
+            {t('node_upgrade.title')}
           </DropdownMenuItem>
           {!client.stopped && (
             <DropdownMenuItem className="text-destructive" onClick={() => stopClient.mutate({ clientId: client.id })}>

@@ -1,5 +1,6 @@
 import http from '@/api/http'
 import { API_PATH } from '@/lib/consts'
+import { UpgradeFrppRequest, UpgradeFrppResponse } from '@/lib/pb/api_client'
 import {
   DeleteServerRequest,
   DeleteServerResponse,
@@ -30,4 +31,9 @@ export const deleteServer = async (req: DeleteServerRequest) => {
 export const initServer = async (req: InitServerRequest) => {
   const res = await http.post(API_PATH + '/server/init', InitServerRequest.toJson(req))
   return InitServerResponse.fromJson((res.data as BaseResponse).body)
+}
+
+export const upgradeServer = async (req: UpgradeFrppRequest) => {
+  const res = await http.post(API_PATH + '/server/upgrade', UpgradeFrppRequest.toJson(req))
+  return UpgradeFrppResponse.fromJson((res.data as BaseResponse).body)
 }

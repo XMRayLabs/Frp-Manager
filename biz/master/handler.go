@@ -89,6 +89,7 @@ func ConfigureRouter(appInstance app.Application, router *gin.Engine) {
 			serverRouter.POST("/init", app.Wrapper(appInstance, server.InitServerHandler))
 			serverRouter.POST("/delete", app.Wrapper(appInstance, server.DeleteServerHandler))
 			serverRouter.POST("/list", app.Wrapper(appInstance, server.ListServersHandler))
+			serverRouter.POST("/upgrade", app.Wrapper(appInstance, server.UpgradeFrppHandler))
 		}
 		frpcRouter := v1.Group("/frpc")
 		{

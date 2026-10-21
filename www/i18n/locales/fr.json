@@ -1,4 +1,14 @@
 {
+  "node_upgrade": {
+    "title": "Mettre à jour le noyau",
+    "description": "Envoyer une demande de mise à jour à {{id}}. Le service redémarrera et les tunnels pourront être interrompus brièvement.",
+    "version": "Version cible",
+    "details": "La version du panneau est proposée ; latest est aussi accepté. Le noyau officiel est téléchargé, vérifié par SHA256, sauvegardé, remplacé puis redémarré. Vérifiez la version après reconnexion.",
+    "legacy_server": "Les anciens serveurs peuvent nécessiter une première mise à jour manuelle. Pour Docker, mettez à jour l’image du conteneur.",
+    "confirm": "Envoyer la demande",
+    "accepted": "Demande acceptée. Vérifiez la version après reconnexion.",
+    "failed": "Demande de mise à jour refusée"
+},
   "app": {
     "title": "frp-manager",
     "subtitle": "frp-manager",
