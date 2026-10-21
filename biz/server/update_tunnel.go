@@ -12,7 +12,7 @@ import (
 )
 
 func UpdateFrpsHander(ctx *app.Context, req *pb.UpdateFRPSRequest) (*pb.UpdateFRPSResponse, error) {
-	logger.Logger(ctx).Infof("update frps, req: [%+v]", req)
+	logger.Logger(ctx).Infof("update frps, server: [%s]", req.GetServerId())
 
 	content := req.GetConfig()
 

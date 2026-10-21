@@ -4,11 +4,9 @@ import (
 	"bytes"
 	"errors"
 	"html/template"
-	"path/filepath"
 
 	"github.com/Sakurame1/frp-manager/defs"
 	"github.com/Sakurame1/frp-manager/pb"
-	"github.com/Sakurame1/frp-manager/utils"
 	"github.com/samber/lo"
 )
 
@@ -19,6 +17,9 @@ func BuildCapfile(workers []*pb.Worker) map[string]string {
 
 	results := map[string]string{}
 	for _, worker := range workers {
+		if ValidateWorker(worker) != nil {
+			continue
+		}
 		tmpWorker := &pb.Worker{
 			WorkerId:  lo.ToPtr(SafeWorkerID(worker.GetWorkerId())),
 			UserId:    lo.ToPtr(worker.GetUserId()),
@@ -39,9 +40,11 @@ func BuildCapfile(workers []*pb.Worker) map[string]string {
 
 		capTemplate, err := capTemplate.Parse(workerTemplate)
 		if err != nil {
-			panic(err)
+			continue
 		}
-		capTemplate.Execute(writer, tmpWorker)
+		if err := capTemplate.Execute(writer, tmpWorker); err != nil {
+			continue
+		}
 
 		results[worker.GetWorkerId()] = writer.String()
 	}
@@ -49,7 +52,7 @@ func BuildCapfile(workers []*pb.Worker) map[string]string {
 }
 
 func GenWorkerConfig(worker *pb.Worker, dir string) error {
-	if worker == nil || worker.GetWorkerId() == "" {
+	if err := ValidateWorker(worker); err != nil {
 		return errors.New("error worker")
 	}
 	fileMap := BuildCapfile([]*pb.Worker{worker})
@@ -59,9 +62,5 @@ func GenWorkerConfig(worker *pb.Worker, dir string) error {
 		return errors.New("BuildCapfile error")
 	}
 
-	return utils.WriteFile(
-		filepath.Join(
-			dir, defs.WorkerInfoPath,
-			worker.GetWorkerId(), defs.CapFileName,
-		), fileContent)
+	return writeWorkerFile(worker, dir, defs.CapFileName, fileContent)
 }

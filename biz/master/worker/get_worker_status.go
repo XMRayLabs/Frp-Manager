@@ -34,6 +34,11 @@ func GetWorkerStatus(ctx *app.Context, req *pb.GetWorkerStatusRequest) (*pb.GetW
 		return nil, err
 	}
 
+	for _, node := range workerRecord.Clients {
+		if err := dao.CanManageClient(ctx, userInfo, node.ClientID); err != nil {
+			return nil, err
+		}
+	}
 	clientIds := lo.Map(workerRecord.Clients, func(cli models.Client, _ int) string {
 		return cli.ClientID
 	})

@@ -15,7 +15,7 @@ import (
 )
 
 func GetClientHandler(ctx *app.Context, req *pb.GetClientRequest) (*pb.GetClientResponse, error) {
-	logger.Logger(ctx).Infof("get client, req: [%+v]", req)
+	logger.Logger(ctx).Infof("get client, id: [%s]", req.GetClientId())
 
 	var (
 		userInfo = common.GetUserInfo(ctx)
@@ -40,13 +40,14 @@ func GetClientHandler(ctx *app.Context, req *pb.GetClientRequest) (*pb.GetClient
 	}
 
 	if token, ok := ctx.Value(defs.TokenKey).(string); ok && strings.HasPrefix(token, models.EnrollmentTokenPrefix) {
-		node, err := dao.NewQuery(ctx).AdminGetClientByClientID(clientID)
-		if err != nil {
+		if err := models.ValidateEnrollmentDeviceSecret(req.GetDeviceSecret()); err != nil {
 			return nil, err
 		}
-		if node.UserID != userInfo.GetUserID() || node.TenantID != userInfo.GetTenantID() {
-			return nil, fmt.Errorf("enrollment token cannot manage another user's device")
+		node, err := dao.NewQuery(ctx).ValidateClientSecret(clientID, req.GetDeviceSecret())
+		if err != nil || node.UserID != userInfo.GetUserID() || node.TenantID != userInfo.GetTenantID() || serverID != "" {
+			return nil, fmt.Errorf("invalid enrollment device proof")
 		}
+		clientID = node.ClientID
 	}
 	respCli := &pb.Client{}
 	if len(serverID) == 0 {

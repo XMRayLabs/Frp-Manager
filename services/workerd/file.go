@@ -6,13 +6,10 @@ import (
 
 	"github.com/Sakurame1/frp-manager/defs"
 	"github.com/Sakurame1/frp-manager/pb"
-	"github.com/Sakurame1/frp-manager/utils"
 )
 
 func WriteWorkerCodeToFile(ctx context.Context, worker *pb.Worker, workerdCWD string) error {
-	return utils.WriteFile(
-		CodeFilePath(ctx, worker, workerdCWD),
-		string(worker.GetCode()))
+	return writeWorkerFile(worker, workerdCWD, filepath.Join(defs.WorkerCodePath, worker.GetCodeEntry()), worker.GetCode())
 }
 
 func CodeFilePath(ctx context.Context, worker *pb.Worker, workerdCWD string) string {

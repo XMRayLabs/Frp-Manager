@@ -152,7 +152,14 @@ func (q *workerQuery) AdminListWorkersByClientID(clientID string) ([]*models.Wor
 		return nil, err
 	}
 
-	return client.Workers, nil
+	active := make([]*models.Worker, 0, len(client.Workers))
+	for _, worker := range client.Workers {
+		owner, err := newUserQuery(q.queryImpl).GetUserByUserID(int(worker.UserId))
+		if err == nil && owner.TenantID == client.TenantID && CanManageOwner(db, owner, client.UserID) {
+			active = append(active, worker)
+		}
+	}
+	return active, nil
 }
 
 func (q *workerQuery) ListWorkersWithKeyword(userInfo models.UserInfo, page, pageSize int, keyword string) ([]*models.Worker, error) {

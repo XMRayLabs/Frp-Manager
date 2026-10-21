@@ -8,7 +8,7 @@ OUTPUT_DIR="${CLIENT_UI_ROOT}/resources/binaries"
 OUTPUT="${OUTPUT_DIR}/frpp"
 
 command -v go >/dev/null 2>&1 || {
-  echo "Go toolchain not found. Install Go 1.25+ or set go on PATH." >&2
+  echo "Go toolchain not found. Install Go 1.27.3+ or set go on PATH." >&2
   exit 1
 }
 

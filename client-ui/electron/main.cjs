@@ -7,8 +7,7 @@ const { spawn } = require('node:child_process')
 const {
   appleScriptQuote,
   buildManagedServiceConfig,
-  buildWindowsElevationLauncher,
-  buildWindowsServiceScript,
+  windowsServiceFailure,
   redactSecrets,
   rpcPort,
   shellQuote,
@@ -249,28 +248,20 @@ async function runWindowsServiceAction(action, profile) {
       await fs.writeFile(tempConfig, config, { encoding: 'utf8', mode: 0o600 })
     }
 
-    const helper = buildWindowsServiceScript({
-      action,
-      sourceBinary,
-      tempConfig,
-      installDir: windowsServiceDir,
-      targetBinary: windowsServiceBinary,
-      targetConfig: windowsServiceConfig,
-      outputPath,
-      managerRpcPort: rpcPort(profile?.rpcUrl),
-    })
-    const launcher = buildWindowsElevationLauncher(helper, outputPath)
-    return await runProcess('powershell.exe', ['-NoProfile', '-NonInteractive', '-Command', launcher])
-  } catch (error) {
-    const errorMessage = String(error.message).toLowerCase()
-    if (
-      error.exitCode === 1223 ||
-      errorMessage.includes('canceled by the user') ||
-      errorMessage.includes('operation was canceled')
-    ) {
-      throw new Error('Administrator authorization was canceled.')
+    const requestPath = path.join(tempDir, 'service-request.json')
+    await fs.writeFile(requestPath, JSON.stringify({ action, sourceBinary, tempConfig, managerRpcPort: rpcPort(profile?.rpcUrl) }), { encoding: 'utf8', mode: 0o600 })
+    const scriptDir = app.isPackaged ? path.join(process.resourcesPath, 'windows') : path.join(__dirname, '../resources/windows')
+    const launcherPath = path.join(scriptDir, 'service-launcher.ps1')
+    if (!fsSync.existsSync(launcherPath) || !fsSync.existsSync(path.join(scriptDir, 'service-action.ps1'))) {
+      throw new Error('Bundled Windows service scripts are missing. Please reinstall the client.')
     }
-    throw error
+    return await runProcess('powershell.exe', ['-NoProfile', '-NonInteractive', '-ExecutionPolicy', 'Bypass', '-File', launcherPath, '-RequestPath', requestPath])
+  } catch (error) {
+    let serviceOutput = ''
+    if (tempDir) {
+      try { serviceOutput = await fs.readFile(path.join(tempDir, 'service-output.txt'), 'utf8') } catch { /* The launcher may have been blocked before producing a log. */ }
+    }
+    throw windowsServiceFailure(error, serviceOutput)
   } finally {
     if (tempDir) await fs.rm(tempDir, { recursive: true, force: true })
   }

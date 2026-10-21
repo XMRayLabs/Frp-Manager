@@ -274,6 +274,26 @@ try {
 `
 }
 
+function windowsServiceFailure(error, serviceOutput = '') {
+  const original = String(error?.output || error?.message || '').trim()
+  const details = [serviceOutput.trim(), original].filter(Boolean).join('\n')
+  const code = error?.exitCode
+  let message
+  if (code === 1223 || /canceled by the user|operation was canceled|操作被用户取消/i.test(original)) {
+    message = '已取消管理员授权，未完成服务操作。'
+  } else if (/ScriptContainedMaliciousContent|AntivirusBlocked|被防病毒软件阻止|contains malicious content|blocked by your antivirus/i.test(details)) {
+    message = 'Windows 服务操作被安全软件阻止。请查看安全软件事件详情，记录检测名称和被拦截文件，以便核查或申请误报复核。'
+  } else if (!serviceOutput.trim()) {
+    message = 'Windows 服务操作未能开始，未收到安装脚本日志。请检查管理员授权及安全软件拦截记录；仅凭退出码无法确定原因。'
+  } else {
+    message = 'Windows 服务操作失败，请查看下方安装日志。'
+  }
+  const result = new Error(message + (details ? '\n' + details : ''))
+  result.output = result.message
+  result.exitCode = code
+  return result
+}
+
 function dotenvValue(value) {
   return `"${String(value)
     .replaceAll('\\', '\\\\')
@@ -375,4 +395,5 @@ module.exports = {
   rpcPort,
   shellQuote,
   validateProfile,
+  windowsServiceFailure,
 }

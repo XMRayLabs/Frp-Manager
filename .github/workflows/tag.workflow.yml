@@ -8,9 +8,9 @@ on:
   workflow_dispatch:
     inputs:
       version:
-        description: "Release version, for example 1.0.0"
+        description: "Release version, for example 1.1.4"
         required: true
-        default: "1.0.0"
+        default: "1.1.4"
         type: string
 
 permissions:
@@ -18,10 +18,14 @@ permissions:
   packages: write
 
 env:
-  GO_VERSION: "1.25.x"
+  GO_VERSION: "1.27.3"
   NODE_VERSION: "24"
 
 jobs:
+  security:
+    name: Verify security before building release
+    uses: ./.github/workflows/security.yml
+
   prepare:
     name: Resolve release version
     runs-on: ubuntu-latest
@@ -55,7 +59,7 @@ jobs:
   build-core:
     name: Build core binaries
     runs-on: ubuntu-latest
-    needs: prepare
+    needs: [prepare, security]
     steps:
       - uses: actions/checkout@v4
         with:
@@ -109,7 +113,7 @@ jobs:
   build-client-windows:
     name: Build Windows client UI
     runs-on: windows-latest
-    needs: prepare
+    needs: [prepare, security]
     steps:
       - uses: actions/checkout@v4
         with:
@@ -160,7 +164,7 @@ jobs:
   build-client-macos:
     name: Build macOS client UI
     runs-on: macos-latest
-    needs: prepare
+    needs: [prepare, security]
     steps:
       - uses: actions/checkout@v4
         with:
@@ -259,9 +263,17 @@ jobs:
           path: client-ui/release-assets/*
 
   build-client-android:
-    name: Build Android APK
+    name: Build Android APK (${{ matrix.abi }})
     runs-on: ubuntu-latest
-    needs: prepare
+    needs: [prepare, security]
+    strategy:
+      fail-fast: false
+      matrix:
+        include:
+          - abi: arm64-v8a
+            suffix: ""
+          - abi: armeabi-v7a
+            suffix: "-armv7"
     steps:
       - uses: actions/checkout@v4
         with:
@@ -290,6 +302,9 @@ jobs:
         run: |
           sdkmanager --version
           sdkmanager "platforms;android-36" "build-tools;36.0.0"
+          if [[ "${{ matrix.abi }}" == "armeabi-v7a" ]]; then
+            sdkmanager "ndk;27.2.12479018"
+          fi
 
       - name: Install pnpm
         run: npm install -g pnpm@10
@@ -317,6 +332,8 @@ jobs:
 
       - name: Build APK
         env:
+          FRP_ANDROID_ABI: ${{ matrix.abi }}
+          ANDROID_NDK_VERSION: "27.2.12479018"
           RELEASE_VERSION: ${{ needs.prepare.outputs.version }}
           RELEASE_VERSION_CODE: ${{ needs.prepare.outputs.version_code }}
           ANDROID_SIGNING_READY: ${{ steps.android_signing.outputs.ready }}
@@ -329,6 +346,9 @@ jobs:
           cd client-ui
           pnpm install --frozen-lockfile
           npm version "$RELEASE_VERSION" --no-git-tag-version --allow-same-version
+          if [[ "$FRP_ANDROID_ABI" == "armeabi-v7a" ]]; then
+            export ANDROID_NDK_HOME="$ANDROID_HOME/ndk/$ANDROID_NDK_VERSION"
+          fi
           pnpm prepare:core:android
           pnpm build
           pnpm exec cap sync android
@@ -345,20 +365,24 @@ jobs:
           fi
           cd ..
           mkdir -p release-assets
-          cp "android/$source_apk" "release-assets/frp-manager-client-android.apk"
+          cp "android/$source_apk" "release-assets/frp-manager-client-android${{ matrix.suffix }}.apk"
+          "$ANDROID_HOME/build-tools/36.0.0/aapt" dump badging "release-assets/frp-manager-client-android${{ matrix.suffix }}.apk" > apk-info.txt
+          grep -F "versionName='$RELEASE_VERSION'" apk-info.txt
+          grep -Fx "native-code: '${{ matrix.abi }}'" apk-info.txt
+          "$ANDROID_HOME/build-tools/36.0.0/apksigner" verify "release-assets/frp-manager-client-android${{ matrix.suffix }}.apk"
           if [[ "$ANDROID_SIGNING_READY" != "true" ]]; then
             printf '%s\n' \
               "This Android preview APK uses an ephemeral debug signing key." \
               "A later build may require uninstalling this APK before installation." \
-              > release-assets/ANDROID-BUILD-NOTICE.txt
+              > release-assets/ANDROID-BUILD-NOTICE${{ matrix.suffix }}.txt
           fi
           cd release-assets
-          sha256sum * > SHA256SUMS-client-android.txt
+          sha256sum * > SHA256SUMS-client-android${{ matrix.suffix }}.txt
 
       - name: Upload Android client artifacts
         uses: actions/upload-artifact@v4
         with:
-          name: client-android-assets
+          name: client-android${{ matrix.suffix }}-assets
           path: client-ui/release-assets/*
 
   publish:
@@ -407,7 +431,7 @@ jobs:
   docker:
     name: Publish Docker Hub images
     runs-on: ubuntu-latest
-    needs: prepare
+    needs: [prepare, security, publish]
     env:
       KO_DOCKER_REPO: docker.io/sakurame1/frp-manager
       RELEASE_TAG: ${{ needs.prepare.outputs.release_tag }}

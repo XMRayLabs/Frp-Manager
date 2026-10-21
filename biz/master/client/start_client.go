@@ -42,7 +42,7 @@ func StartFRPCHandler(ctx *app.Context, req *pb.StartFRPCRequest) (*pb.StartFRPC
 			return nil, err
 		}
 		owner.Status = 1
-		if err := dao.CanUseServer(ctx.GetApp().GetDBManager().GetDefaultDB(), owner, client.ServerID); err != nil {
+		if err := dao.ValidateClientAllowedPorts(ctx.GetApp().GetDBManager().GetDefaultDB(), owner, client); err != nil {
 			return nil, err
 		}
 	}

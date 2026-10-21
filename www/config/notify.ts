@@ -14,10 +14,18 @@ function parseVersion(value: string | undefined): ParsedVersion | undefined {
   }
 }
 
+// Compatibility for the architecture suffix used by older ARMv7 packages.
+export function normalizeClientVersion(value: string | undefined) {
+  const text = value?.trim() ?? ''
+  const match = text.match(/^v?(\d+\.\d+\.\d+)-armv7(?:-test)?$/i)
+  return match ? match[1] : text
+}
+
 export function NeedUpgrade(version: ClientVersion | undefined, currentVersion: string | undefined) {
-  if (version?.gitVersion?.trim().toLowerCase() === 'main') return true
-  const installed = parseVersion(version?.gitVersion)
-  const current = parseVersion(currentVersion)
+  const installedVersion = normalizeClientVersion(version?.gitVersion)
+  if (installedVersion.toLowerCase() === 'main') return true
+  const installed = parseVersion(installedVersion)
+  const current = parseVersion(normalizeClientVersion(currentVersion))
   if (!installed || !current) return false
 
   for (let index = 0; index < current.numbers.length; index += 1) {

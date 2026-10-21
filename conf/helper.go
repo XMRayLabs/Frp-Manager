@@ -33,7 +33,7 @@ func MasterAPIListenAddr(cfg Config) string {
 }
 
 func ServerAPIListenAddr(cfg Config) string {
-	return fmt.Sprintf(":%d", cfg.Server.APIPort)
+	return fmt.Sprintf("127.0.0.1:%d", cfg.Server.APIPort)
 }
 
 func FRPsAuthOption(cfg Config) v1.HTTPPluginOptions {
@@ -45,7 +45,7 @@ func FRPsAuthOption(cfg Config) v1.HTTPPluginOptions {
 
 	return v1.HTTPPluginOptions{
 		Name: defs.FRP_Plugin_Multiuser,
-		Ops:  []string{"Login"},
+		Ops:  []string{"Login", "NewProxy", "Ping", "NewWorkConn"},
 		Addr: parsedUrl.Host,
 		Path: parsedUrl.Path,
 	}

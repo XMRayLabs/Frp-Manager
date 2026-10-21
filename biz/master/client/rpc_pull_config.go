@@ -22,8 +22,7 @@ func RPCPullConfig(ctx *app.Context, req *pb.PullClientConfigReq) (*pb.PullClien
 	}
 
 	if err := dao.NewMutation(ctx).AdminUpdateClientLastSeen(cli.ClientID); err != nil {
-		logger.Logger(ctx).WithError(err).Errorf("update client last_seen_at time error, req:[%s] clientId:[%s]",
-			req.String(), cli.ClientID)
+		logger.Logger(ctx).WithError(err).Errorf("update client last_seen_at time error, clientId:[%s]", cli.ClientID)
 	}
 
 	mgr := ctx.GetApp().GetClientsManager()

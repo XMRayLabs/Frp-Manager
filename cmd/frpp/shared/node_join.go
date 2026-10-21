@@ -17,18 +17,20 @@ import (
 	"github.com/Sakurame1/frp-manager/pb"
 	"github.com/Sakurame1/frp-manager/services/app"
 	"github.com/Sakurame1/frp-manager/services/rpc"
+	"github.com/Sakurame1/frp-manager/utils"
 	"github.com/google/uuid"
 	"github.com/samber/lo"
 )
 
 type nodeIdentity struct {
-	Attempt   string       `json:"attempt,omitempty"`
-	TokenHash string       `json:"token_hash,omitempty"`
-	API       string       `json:"api"`
-	Role      defs.AppRole `json:"role"`
-	Name      string       `json:"name"`
-	ID        string       `json:"id,omitempty"`
-	Secret    string       `json:"secret,omitempty"`
+	Attempt         string       `json:"attempt,omitempty"`
+	TokenHash       string       `json:"token_hash,omitempty"`
+	API             string       `json:"api"`
+	Role            defs.AppRole `json:"role"`
+	Name            string       `json:"name"`
+	ID              string       `json:"id,omitempty"`
+	Secret          string       `json:"secret,omitempty"`
+	BootstrapSecret string       `json:"bootstrap_secret,omitempty"`
 }
 
 func writeNodeIdentity(path string, identity nodeIdentity) error {
@@ -164,10 +166,22 @@ func autoJoinNode(cfg conf.Config, args CommonArgs, role defs.AppRole) (conf.Con
 		}
 	}
 	identity.Attempt, identity.TokenHash = attempt, tokenHash
+	if identity.BootstrapSecret == "" {
+		identity.BootstrapSecret, err = utils.SecureRandomString(32)
+		if err != nil {
+			return cfg, err
+		}
+		if !ephemeral {
+			if err := writeNodeIdentity(path, identity); err != nil {
+				return cfg, err
+			}
+		}
+	}
+	args.EnrollmentSecret = &identity.BootstrapSecret
 	args.ClientID = &identity.Name
 	var node *pb.Client
 	if role == defs.AppRole_Server {
-		node, err = rpc.JoinServer(cfg, identity.Name, lo.FromPtr(args.JoinToken))
+		node, err = rpc.JoinServer(cfg, identity.Name, lo.FromPtr(args.JoinToken), identity.BootstrapSecret)
 	} else {
 		node, err = JoinMaster(cfg, args)
 	}

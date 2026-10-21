@@ -2,6 +2,7 @@ package server
 
 import (
 	"github.com/Sakurame1/frp-manager/common"
+	"github.com/Sakurame1/frp-manager/defs"
 	"github.com/Sakurame1/frp-manager/models"
 	"github.com/Sakurame1/frp-manager/pb"
 	"github.com/Sakurame1/frp-manager/services/app"
@@ -9,6 +10,7 @@ import (
 	"github.com/Sakurame1/frp-manager/utils"
 	"github.com/gin-gonic/gin"
 	"github.com/google/uuid"
+	"strings"
 )
 
 func InitServerHandler(c *app.Context, req *pb.InitServerRequest) (*pb.InitServerResponse, error) {
@@ -35,6 +37,13 @@ func InitServerHandler(c *app.Context, req *pb.InitServerRequest) (*pb.InitServe
 		}, nil
 	}
 
+	secret := uuid.NewString()
+	if token, ok := c.Value(defs.TokenKey).(string); ok && strings.HasPrefix(token, models.EnrollmentTokenPrefix) {
+		secret = req.GetDeviceSecret()
+		if err := models.ValidateEnrollmentDeviceSecret(secret); err != nil {
+			return nil, err
+		}
+	}
 	globalServerID := app.GlobalClientID(userInfo.GetUserName(), "s", userServerID)
 
 	if err := dao.NewMutation(c).CreateServer(userInfo,
@@ -42,7 +51,7 @@ func InitServerHandler(c *app.Context, req *pb.InitServerRequest) (*pb.InitServe
 			ServerID:      globalServerID,
 			TenantID:      userInfo.GetTenantID(),
 			UserID:        userInfo.GetUserID(),
-			ConnectSecret: uuid.New().String(),
+			ConnectSecret: secret,
 			ServerIP:      serverIP,
 		}); err != nil {
 		return nil, err

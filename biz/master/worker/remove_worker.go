@@ -28,6 +28,11 @@ func RemoveWorker(ctx *app.Context, req *pb.RemoveWorkerRequest) (*pb.RemoveWork
 		return nil, err
 	}
 
+	for _, node := range workerToDelete.Clients {
+		if err := dao.CanManageClient(ctx, userInfo, node.ClientID); err != nil {
+			return nil, err
+		}
+	}
 	if ingressesToDelete, err := q.GetProxyConfigsByWorkerId(userInfo, workerId); err == nil {
 		for _, ingressToDelete := range ingressesToDelete {
 			logger.Logger(ctx).Infof("start to remove worker ingress on server: [%s] client: [%s], name: [%s]", ingressToDelete.ServerID, ingressToDelete.ClientID, ingressToDelete.Name)

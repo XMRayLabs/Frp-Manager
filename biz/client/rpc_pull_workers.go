@@ -2,6 +2,7 @@ package client
 
 import (
 	"context"
+	"fmt"
 
 	"github.com/Sakurame1/frp-manager/defs"
 	"github.com/Sakurame1/frp-manager/pb"
@@ -32,6 +33,15 @@ func PullWorkers(appInstance app.Application, clientID, clientSecret string) err
 		logger.Logger(ctx).WithError(err).Error("cannot list client workers, do not change anything")
 		return err
 	}
+
+	if resp.GetStatus().GetCode() != pb.RespCode_RESP_CODE_SUCCESS {
+		return fmt.Errorf("worker sync was not successful")
+	}
+	allowed := make(map[string]bool, len(resp.GetWorkers()))
+	for _, worker := range resp.GetWorkers() {
+		allowed[worker.GetWorkerId()] = true
+	}
+	ctx.GetApp().GetWorkersManager().RetainWorkers(ctx, allowed)
 
 	if len(resp.GetWorkers()) == 0 {
 		logger.Logger(ctx).Infof("client [%s] has no workers", clientID)

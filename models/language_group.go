@@ -18,6 +18,7 @@ type LanguageGroup struct {
 	UpdatedAt time.Time `json:"updated_at"`
 }
 type LanguageGroupServer struct {
+	AllowedPorts    string `json:"allowed_ports" gorm:"not null;default:''"`
 	LanguageGroupID string `json:"language_group_id" gorm:"primaryKey;size:64"`
 	ServerID        string `json:"server_id" gorm:"primaryKey;size:255"`
 }

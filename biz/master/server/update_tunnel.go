@@ -18,7 +18,7 @@ import (
 )
 
 func UpdateFrpsHander(c *app.Context, req *pb.UpdateFRPSRequest) (*pb.UpdateFRPSResponse, error) {
-	logger.Logger(c).Infof("update frps, req: [%+v]", req)
+	logger.Logger(c).Infof("update frps, server: [%s]", req.GetServerId())
 	var (
 		serverID  = req.GetServerId()
 		configStr = req.GetConfig()
@@ -42,7 +42,7 @@ func UpdateFrpsHander(c *app.Context, req *pb.UpdateFRPSRequest) (*pb.UpdateFRPS
 		return nil, err
 	}
 
-	lo.Filter(srvCfg.HTTPPlugins, func(item v1.HTTPPluginOptions, _ int) bool {
+	srvCfg.HTTPPlugins = lo.Filter(srvCfg.HTTPPlugins, func(item v1.HTTPPluginOptions, _ int) bool {
 		return item.Name != defs.FRP_Plugin_Multiuser
 	})
 	srvCfg.HTTPPlugins = append(srvCfg.HTTPPlugins, conf.FRPsAuthOption(c.GetApp().GetConfig()))

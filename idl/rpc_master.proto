@@ -84,6 +84,10 @@ message PullServerConfigResp {
 message FRPAuthRequest {
   string user = 1;
   string token = 2;
+  // NewProxy carries the requested type and public port for server-side authorization.
+  string operation = 3;
+  string proxy_type = 4;
+  int32 remote_port = 5;
 
   ServerBase base = 255;
 }

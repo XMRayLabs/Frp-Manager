@@ -33,13 +33,21 @@ func GetServerHandler(c *app.Context, req *pb.GetServerRequest) (*pb.GetServerRe
 	if !strings.Contains(userServerID, ".") {
 		userServerID = app.GlobalClientID(userInfo.GetUserName(), "s", userServerID)
 	}
-	serverEntity, err := dao.NewQuery(c).GetServerByServerID(userInfo, userServerID)
-	if err != nil {
-		return nil, err
-	}
-
-	if token, ok := c.Value(defs.TokenKey).(string); ok && strings.HasPrefix(token, models.EnrollmentTokenPrefix) && (serverEntity.UserID != userInfo.GetUserID() || serverEntity.TenantID != userInfo.GetTenantID()) {
-		return nil, fmt.Errorf("enrollment token cannot manage another user's server")
+	var serverEntity *models.ServerEntity
+	var err error
+	if token, ok := c.Value(defs.TokenKey).(string); ok && strings.HasPrefix(token, models.EnrollmentTokenPrefix) {
+		if err := models.ValidateEnrollmentDeviceSecret(req.GetDeviceSecret()); err != nil {
+			return nil, err
+		}
+		serverEntity, err = dao.NewQuery(c).ValidateServerSecret(userServerID, req.GetDeviceSecret())
+		if err != nil || serverEntity.UserID != userInfo.GetUserID() || serverEntity.TenantID != userInfo.GetTenantID() {
+			return nil, fmt.Errorf("invalid enrollment device proof")
+		}
+	} else {
+		serverEntity, err = dao.NewQuery(c).GetServerByServerID(userInfo, userServerID)
+		if err != nil {
+			return nil, err
+		}
 	}
 	return &pb.GetServerResponse{
 		Status: &pb.Status{Code: pb.RespCode_RESP_CODE_SUCCESS, Message: "ok"},

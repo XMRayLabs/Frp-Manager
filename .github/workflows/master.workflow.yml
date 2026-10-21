@@ -27,7 +27,7 @@ jobs:
       - name: Setup Go
         uses: actions/setup-go@v5
         with:
-          go-version: "1.25.x"
+          go-version: "1.27.3"
 
       - name: Install pnpm
         run: npm install -g pnpm@10
@@ -44,10 +44,8 @@ jobs:
           sudo apt-get install -y protobuf-compiler
 
       - name: Compile server and client binaries
-        env:
-          RELEASE_VERSION: "1.0.0"
         run: |
-          printf '%s\n' "$RELEASE_VERSION" > VERSION
+          export RELEASE_VERSION="$(tr -d '[:space:]' < VERSION)"
           bash ./build.sh
 
       - name: Verify embedded frontend assets

@@ -15,7 +15,7 @@ if ($null -eq $go) {
 }
 
 if ($null -eq $go) {
-  throw 'Go toolchain not found. Install Go 1.25+ or set go.exe on PATH.'
+  throw 'Go toolchain not found. Install Go 1.27.3+ or set go.exe on PATH.'
 }
 
 New-Item -ItemType Directory -Force -Path $OutputDir | Out-Null

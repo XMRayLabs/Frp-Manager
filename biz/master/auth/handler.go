@@ -3,9 +3,11 @@ package auth
 import (
 	"net/http"
 
+	serverauth "github.com/Sakurame1/frp-manager/biz/master/server"
+	"github.com/Sakurame1/frp-manager/pb"
 	"github.com/Sakurame1/frp-manager/services/app"
-	"github.com/Sakurame1/frp-manager/services/cache"
 	"github.com/Sakurame1/frp-manager/services/dao"
+	"github.com/Sakurame1/frp-manager/services/frpauth"
 	"github.com/Sakurame1/frp-manager/utils/logger"
 	plugin "github.com/fatedier/frp/pkg/plugin/server"
 	"github.com/gin-gonic/gin"
@@ -45,42 +47,18 @@ func MakeGinHandlerFunc(appInstance app.Application, handler HandlerFunc) gin.Ha
 }
 
 func HandleLogin(ctx *app.Context) (interface{}, error) {
-	var r plugin.Request
-	var content plugin.LoginContent
-	r.Content = &content
-	if err := ctx.GetGinCtx().BindJSON(&r); err != nil {
-		return nil, &HTTPError{
-			Code: http.StatusBadRequest,
-			Err:  err,
-		}
-	}
-
-	var res plugin.Response
-	token := content.Metas["token"]
-	if len(content.User) == 0 || len(token) == 0 {
-		res.Reject = true
-		res.RejectReason = "user or meta token can not be empty"
-		return res, nil
-	}
-
-	userToken, err := cache.Get().Get([]byte(content.User))
+	req, err := frpauth.Decode(ctx.GetGinCtx().Request.Body)
 	if err != nil {
-		u, err := dao.NewQuery(ctx).GetUserByUserName(content.User)
-		if err != nil || u == nil {
-			res.Reject = true
-			res.RejectReason = "invalid frp auth"
-			return res, nil
-		}
-		cache.Get().Set([]byte(u.GetUserName()), []byte(u.GetToken()), 0)
-		userToken = []byte(u.GetToken())
+		return plugin.Response{Reject: true, RejectReason: "invalid FRP authentication request"}, nil
 	}
-
-	if string(userToken) == token {
-		res.Unchange = true
-		return res, nil
+	node, err := dao.NewQuery(ctx).GetDefaultServer()
+	if err != nil {
+		return plugin.Response{Reject: true, RejectReason: "FRP server unavailable"}, nil
 	}
-
-	res.Reject = true
-	res.RejectReason = "invalid meta token"
-	return res, nil
+	req.Base = &pb.ServerBase{ServerId: node.ServerID, ServerSecret: node.ConnectSecret}
+	res, err := serverauth.FRPAuth(ctx, req)
+	if err != nil || !res.GetOk() {
+		return plugin.Response{Reject: true, RejectReason: "FRP account, server or port authorization denied"}, nil
+	}
+	return plugin.Response{Unchange: true}, nil
 }

@@ -11,7 +11,7 @@ import (
 )
 
 func UpdateFrpcHander(ctx *app.Context, req *pb.UpdateFRPCRequest) (*pb.UpdateFRPCResponse, error) {
-	logger.Logger(ctx).Infof("update frpc, req: [%+v]", req)
+	logger.Logger(ctx).Infof("update frpc, clientID: [%s]", req.GetClientId())
 	content := req.GetConfig()
 	c, p, v, err := utils.LoadClientConfig(content, false)
 	if err != nil {

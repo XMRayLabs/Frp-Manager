@@ -124,3 +124,15 @@ func (m *workersManager) InstallWorkerd(ctx *app.Context, url string, installDir
 
 	return finalPath, nil
 }
+
+// RetainWorkers removes workloads absent from an authenticated successful sync.
+// A failed RPC must never turn into an empty authoritative list.
+func (m *workersManager) RetainWorkers(ctx *app.Context, allowed map[string]bool) {
+	m.workers.Range(func(id string, worker app.WorkerController) bool {
+		if !allowed[id] {
+			worker.StopWorker(ctx)
+			m.workers.Delete(id)
+		}
+		return true
+	})
+}

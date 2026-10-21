@@ -38,6 +38,7 @@ type CommonArgs struct {
 	ApiScheme         *string
 	JoinToken         *string
 	EnrollmentAttempt *string
+	EnrollmentSecret  *string
 
 	Ephemeral *bool
 }
@@ -607,8 +608,16 @@ func JoinMaster(cfg conf.Config, joinArgs CommonArgs) (*pb.Client, error) {
 		id = utils.GetHostnameWithIP()
 	}
 	id = utils.MakeClientIDPermited(id)
+	proof := lo.FromPtr(joinArgs.EnrollmentSecret)
+	if proof == "" {
+		var err error
+		proof, err = utils.SecureRandomString(32)
+		if err != nil {
+			return nil, err
+		}
+	}
 	get := func(id string) (*pb.Client, error) {
-		response, err := rpc.GetClient(cfg, id, *joinArgs.JoinToken)
+		response, err := rpc.GetClient(cfg, id, *joinArgs.JoinToken, proof)
 		if err != nil {
 			return nil, err
 		}
@@ -620,7 +629,7 @@ func JoinMaster(cfg conf.Config, joinArgs CommonArgs) (*pb.Client, error) {
 	if node, err := get(id); err == nil {
 		return node, nil
 	}
-	response, err := rpc.InitClient(cfg, id, *joinArgs.JoinToken, joinArgs.Ephemeral)
+	response, err := rpc.InitClient(cfg, id, *joinArgs.JoinToken, joinArgs.Ephemeral, proof)
 	if err != nil {
 		return nil, err
 	}

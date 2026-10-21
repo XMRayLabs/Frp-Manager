@@ -31,9 +31,9 @@ GUI 版本内部仍使用同一个 Go 客户端核心。GUI 适合人工管理�
 | Linux x64 | 不需要 GUI | [完整二进制](https://github.com/XMRayLabs/Frp-Manager/releases/latest/download/frp-manager-linux-amd64) |
 | Linux ARM64 | 不需要 GUI | [完整二进制](https://github.com/XMRayLabs/Frp-Manager/releases/latest/download/frp-manager-linux-arm64) |
 | Android ARM64 | [APK](https://github.com/XMRayLabs/Frp-Manager/releases/latest/download/frp-manager-client-android.apk) | APK 已内置核心 |
-| Android ARMv7（32 位） | [APK](https://github.com/XMRayLabs/Frp-Manager/releases/download/v1.1.0/frp-manager-client-android-armv7.apk) | APK 已内置核心；三星 A13 实测可用 |
+| Android ARMv7（32 位） | [APK](https://github.com/XMRayLabs/Frp-Manager/releases/latest/download/frp-manager-client-android-armv7.apk) | APK 已内置核心；三星 A13 实测可用 |
 
-ARMv7 下载项为 1.1.0 的补充产物，保留已验证 APK 的原始字节和签名。应用版本标识为 `1.1.0-armv7-test`，使用调试签名，并非发布者正式签名。不同签名的旧包可能需要先备份连接信息、卸载后再安装。[ARMv7 校验文件](https://github.com/XMRayLabs/Frp-Manager/releases/download/v1.1.0/SHA256SUMS-client-android-armv7.txt)
+ARM64 和 ARMv7 下载包的产品版本保持一致，架构在管理面板的客户端详情中显示。正式发布流程同时构建两种 APK；未配置固定签名时，产物说明会标明调试签名。签名不同的旧包需要先备份连接信息、卸载后再安装。[ARMv7 校验文件](https://github.com/XMRayLabs/Frp-Manager/releases/latest/download/SHA256SUMS-client-android-armv7.txt)
 
 [查看所有版本和 SHA256 文件](https://github.com/XMRayLabs/Frp-Manager/releases/latest)
 
@@ -222,7 +222,7 @@ sudo sysctl -p /etc/sysctl.d/99-frp-manager.conf
 ## 开发与发布
 
 - Node.js：24.x
-- Go：1.25+
+- Go：1.27.3+
 - 版本：语义化版本，例如 `1.0.1`
 
 ```bash

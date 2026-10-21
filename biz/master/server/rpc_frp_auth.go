@@ -1,46 +1,47 @@
 package server
 
 import (
-	"context"
+	"encoding/json"
 	"fmt"
 
+	"github.com/Sakurame1/frp-manager/models"
 	"github.com/Sakurame1/frp-manager/pb"
 	"github.com/Sakurame1/frp-manager/services/app"
-	"github.com/Sakurame1/frp-manager/services/cache"
 	"github.com/Sakurame1/frp-manager/services/dao"
-	"github.com/Sakurame1/frp-manager/utils/logger"
 )
 
 func FRPAuth(ctx *app.Context, req *pb.FRPAuthRequest) (*pb.FRPAuthResponse, error) {
-	logger.Logger(ctx).Infof("frpc auth, req: [%+v]", req)
-	var (
-		err error
-	)
-
-	userToken, err := cache.Get().Get([]byte(req.User))
+	reject := func(err error) (*pb.FRPAuthResponse, error) {
+		return &pb.FRPAuthResponse{Status: &pb.Status{Code: pb.RespCode_RESP_CODE_INVALID, Message: err.Error()}, Ok: false}, err
+	}
+	if req == nil {
+		return reject(fmt.Errorf("invalid FRP authentication request"))
+	}
+	server, err := ValidateServerRequest(ctx, req.GetBase())
 	if err != nil {
-		u, err := dao.NewQuery(ctx).GetUserByUserName(req.User)
-		if err != nil || u == nil {
-			logger.Logger(context.Background()).WithError(err).Errorf("invalid user: %s", req.User)
-			return &pb.FRPAuthResponse{
-				Status: &pb.Status{Code: pb.RespCode_RESP_CODE_INVALID, Message: err.Error()},
-				Ok:     false,
-			}, fmt.Errorf("invalid user: %s", req.User)
+		return reject(fmt.Errorf("FRP server authentication failed; update the server kernel"))
+	}
+	db := ctx.GetApp().GetDBManager().GetDefaultDB()
+	user, err := dao.AuthenticateFRPUser(db, req.GetUser(), req.GetToken())
+	if err != nil {
+		return reject(err)
+	}
+	if err := dao.CanUseServer(db, user, server.ServerID); err != nil {
+		return reject(err)
+	}
+	switch req.GetOperation() {
+	case "Login", "Ping", "NewWorkConn":
+	case "NewProxy":
+		allowed, err := dao.ServerAllowedPorts(db, user, server.ServerID)
+		if err != nil {
+			return reject(err)
 		}
-		cache.Get().Set([]byte(u.GetUserName()), []byte(u.GetToken()), 0)
-		userToken = []byte(u.GetToken())
+		content, _ := json.Marshal(map[string]interface{}{"type": req.GetProxyType(), "remotePort": req.GetRemotePort()})
+		if err := models.ValidateProxyAllowedPorts(allowed, content, server.ConfigContent); err != nil {
+			return reject(err)
+		}
+	default:
+		return reject(fmt.Errorf("unsupported FRP authentication operation; update the server kernel"))
 	}
-
-	if string(userToken) != req.GetToken() {
-		logger.Logger(ctx).Error("invalid token")
-		return &pb.FRPAuthResponse{
-			Status: &pb.Status{Code: pb.RespCode_RESP_CODE_INVALID, Message: "invalid token"},
-			Ok:     false,
-		}, fmt.Errorf("invalid token")
-	}
-
-	return &pb.FRPAuthResponse{
-		Status: &pb.Status{Code: pb.RespCode_RESP_CODE_SUCCESS, Message: "ok"},
-		Ok:     true,
-	}, nil
+	return &pb.FRPAuthResponse{Status: &pb.Status{Code: pb.RespCode_RESP_CODE_SUCCESS, Message: "ok"}, Ok: true}, nil
 }

@@ -8,6 +8,7 @@ option go_package="../pb";
 message InitClientRequest {
   optional string client_id = 1;
   optional bool ephemeral = 2;
+  optional string device_secret = 3;
 }
 
 message InitClientResponse {
@@ -30,6 +31,7 @@ message ListClientsResponse {
 message GetClientRequest {
   optional string client_id = 1;
   optional string server_id = 2;
+  optional string device_secret = 3;
 }
 
 message GetClientResponse {

@@ -42,13 +42,13 @@ func PushClientStreamLog(ctx *app.Context, sender pb.Master_PushClientStreamLogS
 			break
 		}
 		if err != nil {
-			logger.Logger(context.Background()).WithError(err).Errorf("cannot recv from client, id: [%+v]", req.GetBase())
+			logger.Logger(context.Background()).WithError(err).Errorf("cannot recv from client, id: [%s]", req.GetBase().GetClientId())
 			return err
 		}
 
 		node, err := client.ValidateClientRequest(ctx, req.GetBase())
 		if err != nil {
-			logger.Logger(context.Background()).WithError(err).Errorf("cannot validate client, id: [%+v]", req.GetBase())
+			logger.Logger(context.Background()).WithError(err).Errorf("cannot validate client, id: [%s]", req.GetBase().GetClientId())
 			return err
 		}
 
@@ -74,13 +74,13 @@ func PushServerStreamLog(ctx *app.Context, sender pb.Master_PushServerStreamLogS
 			break
 		}
 		if err != nil {
-			logger.Logger(context.Background()).WithError(err).Errorf("cannot recv from server, req: [%+v]", req.GetBase())
+			logger.Logger(context.Background()).WithError(err).Errorf("cannot recv from server, id: [%s]", req.GetBase().GetServerId())
 			return err
 		}
 
 		node, err := server.ValidateServerRequest(ctx, req.GetBase())
 		if err != nil {
-			logger.Logger(context.Background()).WithError(err).Errorf("cannot validate server, req: [%+v]", req.GetBase())
+			logger.Logger(context.Background()).WithError(err).Errorf("cannot validate server, id: [%s]", req.GetBase().GetServerId())
 			return err
 		}
 

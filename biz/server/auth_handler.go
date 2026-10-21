@@ -1,11 +1,12 @@
 package server
 
 import (
+	"context"
 	"net/http"
+	"time"
 
-	"github.com/Sakurame1/frp-manager/defs"
-	"github.com/Sakurame1/frp-manager/pb"
 	"github.com/Sakurame1/frp-manager/services/app"
+	"github.com/Sakurame1/frp-manager/services/frpauth"
 	"github.com/Sakurame1/frp-manager/utils/logger"
 	plugin "github.com/fatedier/frp/pkg/plugin/server"
 	"github.com/gin-gonic/gin"
@@ -50,37 +51,16 @@ func MakeGinHandlerFunc(appInstance app.Application, handler HandlerFunc) gin.Ha
 }
 
 func HandleLogin(ctx *app.Context) (interface{}, error) {
-	var r plugin.Request
-	var content plugin.LoginContent
-	r.Content = &content
-	if err := ctx.GetGinCtx().BindJSON(&r); err != nil {
-		return nil, &HTTPError{
-			Code: http.StatusBadRequest,
-			Err:  err,
-		}
-	}
-
-	var res plugin.Response
-	token := content.Metas[defs.FRPAuthTokenKey]
-	if len(content.User) == 0 || len(token) == 0 {
-		res.Reject = true
-		res.RejectReason = "user or meta token can not be empty"
-		return res, nil
-	}
-	cli := ctx.GetApp().GetMasterCli()
-	authResponse, err := cli.Call().FRPCAuth(ctx, &pb.FRPAuthRequest{User: content.User, Token: token})
+	req, err := frpauth.Decode(ctx.GetGinCtx().Request.Body)
 	if err != nil {
-		res.Reject = true
-		res.RejectReason = "invalid meta token"
-		return res, nil
+		return plugin.Response{Reject: true, RejectReason: "invalid FRP authentication request"}, nil
 	}
-
-	if authResponse.GetOk() {
-		res.Unchange = true
-		return res, nil
+	req.Base = ctx.GetApp().GetServerBase()
+	callCtx, cancel := context.WithTimeout(ctx, 5*time.Second)
+	defer cancel()
+	response, err := ctx.GetApp().GetMasterCli().Call().FRPCAuth(callCtx, req)
+	if err != nil || !response.GetOk() {
+		return plugin.Response{Reject: true, RejectReason: "FRP account, server or port authorization denied"}, nil
 	}
-
-	res.Reject = true
-	res.RejectReason = "invalid meta token"
-	return res, nil
+	return plugin.Response{Unchange: true}, nil
 }

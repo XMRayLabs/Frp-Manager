@@ -14,7 +14,7 @@ func InstallWorkerd(ctx *app.Context, req *pb.InstallWorkerdRequest) (*pb.Instal
 		userInfo = common.GetUserInfo(ctx)
 		clientId = req.GetClientId()
 	)
-	logger.Logger(ctx).Infof("installw orkerd called with userInfo: %v, clientId: %s", userInfo, clientId)
+	logger.Logger(ctx).Infof("install workerd requested by user %d for client %s", userInfo.GetUserID(), clientId)
 
 	if err := dao.CanManageClient(ctx, userInfo, clientId); err != nil {
 		return nil, err

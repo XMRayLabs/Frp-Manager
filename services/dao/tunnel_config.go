@@ -41,6 +41,10 @@ func SaveTunnelConfig(ctx *app.Context, u models.UserInfo, node *models.ClientEn
 		if err != nil {
 			return err
 		}
+		allowedPorts, err := ServerAllowedPorts(tx, &owner, node.ServerID)
+		if err != nil {
+			return err
+		}
 		var others []models.ProxyConfig
 		if err = tx.Where("server_id = ? AND client_id <> ? AND stopped = ?", node.ServerID, node.ClientID, false).Find(&others).Error; err != nil {
 			return err
@@ -64,6 +68,9 @@ func SaveTunnelConfig(ctx *app.Context, u models.UserInfo, node *models.ClientEn
 			}
 			if err = row.FillTypedProxyConfig(cfg); err != nil {
 				return err
+			}
+			if err := models.ValidateProxyAllowedPorts(allowedPorts, row.Content, server.ConfigContent); err != nil {
+				return fmt.Errorf("隧道 %s：%w", row.Name, err)
 			}
 			if names[row.Name] {
 				return fmt.Errorf("duplicate proxy name")

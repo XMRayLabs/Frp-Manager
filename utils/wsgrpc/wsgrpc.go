@@ -120,6 +120,7 @@ func WebsocketDialer(url string, header http.Header, insecure bool, log LogInter
 			return nil, errors.Join(err, errors.New("wsgrpc dialer error"), WSGrpcError)
 		}
 		log.Tracef("websocket connection connect done")
+		ws.SetReadLimit(32 << 20)
 		return &websocketConn{ws: ws}, nil
 	}
 }
@@ -190,6 +191,7 @@ func GinWSHandler(listener *WSListener, upgrader *websocket.Upgrader) gin.Handle
 			c.String(http.StatusInternalServerError, "ws upgrade error: %v", err)
 			return
 		}
+		ws.SetReadLimit(32 << 20)
 		conn := &websocketConn{ws: ws}
 		select {
 		case listener.connCh <- conn:

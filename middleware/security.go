@@ -32,6 +32,16 @@ func SecurityHeaders() gin.HandlerFunc {
 		if strings.HasPrefix(c.Request.URL.Path, "/api/") || c.Request.URL.Path == "/auth" {
 			headers.Set("Cache-Control", "no-store")
 		}
+		if !checkBrowserOrigin(c) {
+			c.AbortWithStatusJSON(http.StatusForbidden, gin.H{"error": "cross-origin state-changing request denied"})
+			return
+		}
+		if strings.HasPrefix(c.Request.URL.Path, "/api/") && c.Request.Method != http.MethodGet && c.Request.ContentLength != 0 {
+			if typ := c.ContentType(); typ != "application/json" && typ != "application/x-protobuf" {
+				c.AbortWithStatusJSON(http.StatusUnsupportedMediaType, gin.H{"error": "use application/json or application/x-protobuf"})
+				return
+			}
+		}
 		if c.Request.Body != nil {
 			c.Request.Body = http.MaxBytesReader(c.Writer, c.Request.Body, maxRequestBodyBytes)
 		}

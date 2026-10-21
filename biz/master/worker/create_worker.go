@@ -23,7 +23,7 @@ func CreateWorker(ctx *app.Context, req *pb.CreateWorkerRequest) (*pb.CreateWork
 	m := dao.NewMutation(ctx)
 
 	if err := validateCreateWorker(req); err != nil {
-		logger.Logger(ctx).WithError(err).Errorf("invalid create worker request, origin is: [%s]", req.String())
+		logger.Logger(ctx).WithError(err).Error("invalid create worker request")
 		return nil, err
 	}
 
@@ -37,6 +37,9 @@ func CreateWorker(ctx *app.Context, req *pb.CreateWorkerRequest) (*pb.CreateWork
 	}
 
 	workerd.FillWorkerValue(reqWorker, uint(userInfo.GetUserID()))
+	if err := workerd.ValidateWorker(reqWorker); err != nil {
+		return nil, err
+	}
 
 	workerToCreate := (&models.Worker{}).FromPB(reqWorker)
 	workerToCreate.WorkerModel = nil

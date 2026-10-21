@@ -30,24 +30,12 @@ func SameOriginWebSocketCheck(r *http.Request) bool {
 		return false
 	}
 
-	for _, host := range requestHostCandidates(r) {
-		if strings.EqualFold(parsedOrigin.Host, host) {
-			return true
-		}
+	if parsedOrigin.User != nil || (parsedOrigin.Scheme != "https" && parsedOrigin.Scheme != "http") {
+		return false
 	}
-	return false
-}
-
-func requestHostCandidates(r *http.Request) []string {
-	hosts := make([]string, 0, 2)
-	if h := strings.TrimSpace(r.Host); h != "" {
-		hosts = append(hosts, h)
+	scheme := "http"
+	if r.TLS != nil || strings.EqualFold(r.Header.Get("X-Forwarded-Proto"), "https") {
+		scheme = "https"
 	}
-	if h := strings.TrimSpace(r.Header.Get("X-Forwarded-Host")); h != "" {
-		parts := strings.Split(h, ",")
-		if len(parts) > 0 && strings.TrimSpace(parts[0]) != "" {
-			hosts = append(hosts, strings.TrimSpace(parts[0]))
-		}
-	}
-	return hosts
+	return strings.EqualFold(parsedOrigin.Host, r.Host) && parsedOrigin.Scheme == scheme
 }

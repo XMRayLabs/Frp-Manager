@@ -3,7 +3,7 @@ package workerd
 import (
 	"context"
 	"os"
-	"strings"
+	"path/filepath"
 
 	"github.com/Sakurame1/frp-manager/defs"
 	"github.com/Sakurame1/frp-manager/pb"
@@ -53,13 +53,10 @@ func (w *workerdController) GetWorkerStatus(c *app.Context) defs.WorkerStatus {
 }
 
 func (w *workerdController) Init(c *app.Context) error {
-	workerCodePath := WorkerCodeRootPath(c, w.worker, w.workerdCwd)
-
-	// 1. 创建工作目录
-	if err := os.MkdirAll(workerCodePath, 0755); err != nil {
-		logger.Logger(c).WithError(err).Errorf("create work dir failed, path: [%s]", workerCodePath)
+	if err := ValidateWorker(w.worker); err != nil {
 		return err
 	}
+	workerCodePath := WorkerCodeRootPath(c, w.worker, w.workerdCwd)
 
 	// 2. 写入配置文件和代码文件
 	if err := WriteWorkerCodeToFile(c, w.worker, w.workerdCwd); err != nil {
@@ -80,14 +77,15 @@ func (w *workerdController) Init(c *app.Context) error {
 func (w *workerdController) GarbageCollect() {
 	ctx := context.Background()
 
-	pathToRemove := WorkerCWDPath(ctx, w.worker, w.workerdCwd)
-
-	if !strings.HasPrefix(pathToRemove, "/tmp") {
-		logger.Logger(ctx).Errorf("path not start with /tmp, do not remove path: [%s]", pathToRemove)
+	if err := ValidateWorker(w.worker); err != nil {
 		return
 	}
-
-	if err := os.RemoveAll(pathToRemove); err != nil {
-		logger.Logger(ctx).WithError(err).Errorf("remove path failed, path: [%s]", pathToRemove)
+	root, err := os.OpenRoot(w.workerdCwd)
+	if err != nil {
+		return
+	}
+	defer root.Close()
+	if err := root.RemoveAll(filepath.Join(defs.WorkerInfoPath, w.worker.GetWorkerId())); err != nil {
+		logger.Logger(ctx).WithError(err).Error("cannot remove worker directory")
 	}
 }

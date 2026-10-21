@@ -211,3 +211,19 @@ test('enrollment profiles persist the token and keep startup updates enabled', (
 test('removes ANSI colors from service errors', () => {
   assert.equal(redactSecrets('\x1b[31mLoad failed: 5\x1b[0m'), 'Load failed: 5')
 })
+
+test('Windows service failures distinguish missing logs, confirmed blocking and UAC cancellation', () => {
+  const { windowsServiceFailure } = require('./service-utils.cjs')
+  const noLog = windowsServiceFailure(Object.assign(new Error('powershell.exe exited with 1'), { exitCode: 1 }))
+  assert.match(noLog.message, /未收到安装脚本日志/)
+  assert.match(noLog.message, /仅凭退出码无法确定原因/)
+  assert.equal(noLog.exitCode, 1)
+  const blocked = windowsServiceFailure(new Error('ScriptContainedMaliciousContent'))
+  assert.match(blocked.message, /被安全软件阻止/)
+  const canceled = windowsServiceFailure(Object.assign(new Error('cancel'), { exitCode: 1223 }))
+  assert.match(canceled.message, /已取消管理员授权/)
+  const failure = windowsServiceFailure(new Error('exit 1'), 'Running Windows service action apply.\nport in use')
+  assert.match(failure.message, /port in use/)
+  assert.doesNotMatch(failure.message, /未收到安装脚本日志/)
+  assert.equal(redactSecrets(windowsServiceFailure(new Error('CLIENT_JOIN_TOKEN=private')).output).includes('private'), false)
+})

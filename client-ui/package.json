@@ -1,7 +1,7 @@
 {
   "name": "frp-manager-client-ui",
   "private": true,
-  "version": "1.0.0",
+  "version": "1.1.4",
   "description": "Desktop and mobile client manager for frp-manager",
   "author": "Sakurame1",
   "engines": {
@@ -29,24 +29,24 @@
     "test:parser": "node --experimental-strip-types --test tests/parser.test.mjs"
   },
   "dependencies": {
-    "@capacitor/android": "^8.4.1",
-    "@capacitor/core": "^8.4.1",
+    "@capacitor/android": "^8.4.3",
+    "@capacitor/core": "^8.4.3",
     "lucide-react": "^1.23.0",
     "react": "^19.2.7",
     "react-dom": "^19.2.7"
   },
   "devDependencies": {
-    "@capacitor/cli": "^8.4.1",
+    "@capacitor/cli": "^8.4.3",
     "@types/node": "^24.13.2",
     "@types/react": "^19.2.17",
     "@types/react-dom": "^19.2.3",
     "@vitejs/plugin-react": "^6.0.3",
     "concurrently": "^10.0.3",
-    "electron": "^43.0.0",
+    "electron": "^43.7.0",
     "electron-builder": "^26.15.3",
     "oxlint": "^1.71.0",
     "typescript": "~6.0.2",
-    "vite": "^8.1.1",
+    "vite": "^8.1.6",
     "wait-on": "^9.0.10"
   },
   "build": {
@@ -74,7 +74,16 @@
         "nsis"
       ],
       "icon": "resources/icon.ico",
-      "artifactName": "frp-manager-client-${version}-${arch}.${ext}"
+      "artifactName": "frp-manager-client-${version}-${arch}.${ext}",
+      "extraResources": [
+        {
+          "from": "resources/windows",
+          "to": "windows",
+          "filter": [
+            "*.ps1"
+          ]
+        }
+      ]
     },
     "mac": {
       "category": "public.app-category.utilities",

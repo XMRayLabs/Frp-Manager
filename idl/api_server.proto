@@ -8,6 +8,7 @@ message InitServerRequest {
   optional string server_id = 1;
   optional string server_ip = 2;
   optional string comment = 3;
+  optional string device_secret = 4;
 }
 
 message InitServerResponse {
@@ -29,6 +30,7 @@ message ListServersResponse {
 
 message GetServerRequest {
   optional string server_id = 1;
+  optional string device_secret = 2;
 }
 
 message GetServerResponse {

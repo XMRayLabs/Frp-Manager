@@ -30,9 +30,9 @@ containers, and automation. Use the GUI when an operator needs profile switching
 | Linux x64 | Not needed | [Binary](https://github.com/XMRayLabs/Frp-Manager/releases/latest/download/frp-manager-linux-amd64) |
 | Linux ARM64 | Not needed | [Binary](https://github.com/XMRayLabs/Frp-Manager/releases/latest/download/frp-manager-linux-arm64) |
 | Android ARM64 | [APK](https://github.com/XMRayLabs/Frp-Manager/releases/latest/download/frp-manager-client-android.apk) | Included in APK |
-| Android ARMv7 (32-bit) | [APK](https://github.com/XMRayLabs/Frp-Manager/releases/download/v1.1.0/frp-manager-client-android-armv7.apk) | Core included; tested on Samsung A13 |
+| Android ARMv7 (32-bit) | [APK](https://github.com/XMRayLabs/Frp-Manager/releases/latest/download/frp-manager-client-android-armv7.apk) | Core included; tested on Samsung A13 |
 
-The ARMv7 download supplements 1.1.0 and preserves the verified APK unchanged. Its app version remains `1.1.0-armv7-test` and it uses a debug signature, not a production signing key. A differently signed installation may need removal after backing up connection settings. [ARMv7 checksums](https://github.com/XMRayLabs/Frp-Manager/releases/download/v1.1.0/SHA256SUMS-client-android-armv7.txt)
+ARM64 and ARMv7 packages share the same product version; architecture is shown in the dashboard client details. The release workflow builds both APKs. When a persistent signing key is not configured, the build notice identifies debug-signed APKs; changing signatures requires backing up connection settings and reinstalling. [ARMv7 checksums](https://github.com/XMRayLabs/Frp-Manager/releases/latest/download/SHA256SUMS-client-android-armv7.txt)
 
 [All latest assets and SHA256 files](https://github.com/XMRayLabs/Frp-Manager/releases/latest)
 
@@ -182,7 +182,7 @@ See [docs/project-structure.md](docs/project-structure.md).
 ## Development And Release
 
 - Node.js 24.x
-- Go 1.25+
+- Go 1.27.3+
 - Semantic versions such as `1.0.1`
 
 ```bash

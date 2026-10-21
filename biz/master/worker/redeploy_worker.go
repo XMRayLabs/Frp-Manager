@@ -34,6 +34,11 @@ func RedeployWorker(ctx *app.Context, req *pb.RedeployWorkerRequest) (*pb.Redepl
 		return nil, fmt.Errorf("cannot get worker, id: [%s]", workerId)
 	}
 
+	for _, node := range workerToUpdate.Clients {
+		if err := dao.CanManageClient(ctx, userInfo, node.ClientID); err != nil {
+			return nil, err
+		}
+	}
 	clis := []*models.Client{}
 	if len(clientIds) != 0 {
 		clis, err = dao.NewQuery(ctx).GetClientsByClientIDs(userInfo, clientIds)
@@ -45,6 +50,11 @@ func RedeployWorker(ctx *app.Context, req *pb.RedeployWorkerRequest) (*pb.Redepl
 		logger.Logger(ctx).Infof("redeploy worker, no clientId, redeploy on all clients")
 	}
 
+	for _, node := range clis {
+		if err := dao.CanManageClient(ctx, userInfo, node.ClientID); err != nil {
+			return nil, err
+		}
+	}
 	var clisToRedeploy []string
 	allCliIds := lo.Map(workerToUpdate.Clients, func(c models.Client, _ int) string { return c.ClientID })
 	reqCliIds := lo.SliceToMap(clis, func(c *models.Client) (string, struct{}) { return c.ClientID, struct{}{} })

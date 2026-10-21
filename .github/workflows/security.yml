@@ -1,0 +1,49 @@
+name: Security regression
+
+on:
+  push:
+    branches: [main]
+  pull_request:
+    branches: [main]
+  workflow_dispatch:
+  workflow_call:
+
+permissions:
+  contents: read
+
+jobs:
+  go-security:
+    runs-on: ubuntu-latest
+    steps:
+      - uses: actions/checkout@v4
+      - uses: actions/setup-go@v5
+        with:
+          go-version: '1.27.3'
+      - name: Run all Go tests, including authorization regressions
+        run: go test ./...
+      - name: Check reachable dependency vulnerabilities
+        run: |
+          go install golang.org/x/vuln/cmd/govulncheck@v1.9.0
+          govulncheck ./...
+  javascript-security:
+    runs-on: ubuntu-latest
+    steps:
+      - uses: actions/checkout@v4
+      - uses: actions/setup-node@v4
+        with:
+          node-version: '24'
+      - run: npm install -g pnpm@10
+      - name: Check panel production dependencies and logic
+        working-directory: www
+        run: |
+          pnpm install --frozen-lockfile
+          pnpm audit --prod
+          node --test tests/*.test.mjs
+      - name: Check desktop runtime and mobile production dependencies
+        working-directory: client-ui
+        run: |
+          pnpm install --frozen-lockfile
+          pnpm audit --prod
+          pnpm audit --audit-level high
+          pnpm test:parser
+          pnpm test:electron

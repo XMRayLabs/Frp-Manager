@@ -31,6 +31,11 @@ func UpdateWorker(ctx *app.Context, req *pb.UpdateWorkerRequest) (*pb.UpdateWork
 		return nil, fmt.Errorf("cannot get worker, id: [%s]", wrokerReq.GetWorkerId())
 	}
 
+	for _, node := range workerToUpdate.Clients {
+		if err := dao.CanManageClient(ctx, userInfo, node.ClientID); err != nil {
+			return nil, err
+		}
+	}
 	clis := []*models.Client{}
 	if len(clientIds) != 0 {
 		clis, err = q.GetClientsByClientIDs(userInfo, clientIds)

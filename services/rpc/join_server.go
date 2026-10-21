@@ -23,10 +23,14 @@ func nodeRequest(cfg conf.Config, token, path string, input, output proto.Messag
 	return proto.Unmarshal(response.Bytes(), output)
 }
 
-func JoinServer(cfg conf.Config, id, token string) (*pb.Client, error) {
+func JoinServer(cfg conf.Config, id, token string, deviceSecret ...string) (*pb.Client, error) {
+	proof := ""
+	if len(deviceSecret) > 0 {
+		proof = deviceSecret[0]
+	}
 	get := func(id string) (*pb.Client, error) {
 		response := &pb.GetServerResponse{}
-		if err := nodeRequest(cfg, token, "/api/v1/server/get", &pb.GetServerRequest{ServerId: &id}, response); err != nil {
+		if err := nodeRequest(cfg, token, "/api/v1/server/get", &pb.GetServerRequest{ServerId: &id, DeviceSecret: &proof}, response); err != nil {
 			return nil, err
 		}
 		if response.GetStatus() == nil || response.GetStatus().GetCode() != pb.RespCode_RESP_CODE_SUCCESS || response.GetServer().GetSecret() == "" {
@@ -40,7 +44,7 @@ func JoinServer(cfg conf.Config, id, token string) (*pb.Client, error) {
 	}
 	response := &pb.InitServerResponse{}
 	// The panel determines the connecting address; it remains editable there.
-	if err := nodeRequest(cfg, token, "/api/v1/server/init", &pb.InitServerRequest{ServerId: &id}, response); err != nil {
+	if err := nodeRequest(cfg, token, "/api/v1/server/init", &pb.InitServerRequest{ServerId: &id, DeviceSecret: &proof}, response); err != nil {
 		return nil, err
 	}
 	if response.GetStatus() == nil || response.GetStatus().GetCode() != pb.RespCode_RESP_CODE_SUCCESS {

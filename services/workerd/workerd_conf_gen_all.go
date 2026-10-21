@@ -5,7 +5,6 @@ import (
 	"errors"
 
 	"github.com/Sakurame1/frp-manager/pb"
-	"github.com/Sakurame1/frp-manager/utils"
 	"github.com/Sakurame1/frp-manager/utils/logger"
 	"github.com/samber/lo"
 	"github.com/sirupsen/logrus"
@@ -14,16 +13,9 @@ import (
 func GenCapnpConfig(ctx context.Context, workerdDir string, workerList *pb.WorkerList) error {
 	var hasError bool
 	for _, worker := range workerList.Workers {
-		fileMap := BuildCapfile([]*pb.Worker{worker})
-
-		if fileContent, ok := fileMap[worker.GetWorkerId()]; ok {
-			err := utils.WriteFile(
-				ConfigFilePath(ctx, worker, workerdDir),
-				fileContent)
-			if err != nil {
-				logrus.WithError(err).Errorf("failed to write file, worker is: %+v", worker.Name)
-				hasError = true
-			}
+		if err := GenWorkerConfig(worker, workerdDir); err != nil {
+			logrus.WithError(err).Error("failed to generate worker configuration")
+			hasError = true
 		}
 	}
 

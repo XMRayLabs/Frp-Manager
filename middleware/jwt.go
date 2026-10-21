@@ -110,6 +110,22 @@ func resignAndPatchCtxJWT(c *gin.Context, appInstance app.Application, userID in
 	if tokenExpire == nil {
 		return errors.New("jwt token has no expiration")
 	}
+	// API credentials retain their explicit expiration. Only a full interactive
+	// session may slide forward; otherwise a narrow token could live forever.
+	permissions, err := common.GetTokenPermission(c)
+	if err != nil {
+		return err
+	}
+	interactive := false
+	for _, p := range permissions {
+		if p.Method == "*" && p.Path == "*" {
+			interactive = true
+		}
+	}
+	if cast.ToBool(t["api_token"]) || !interactive {
+		c.Set(defs.TokenKey, tokenStr)
+		return nil
+	}
 	now := time.Now().Add(time.Duration(appInstance.GetConfig().App.CookieAge/2) * time.Second)
 	if now.Before(tokenExpire.Time) {
 		logger.Logger(c).Debugf("jwt not going to expire, continue to use old one")
@@ -117,7 +133,7 @@ func resignAndPatchCtxJWT(c *gin.Context, appInstance app.Application, userID in
 		return nil
 	}
 
-	tokenStr, err := SetToken(c, appInstance, userID, t)
+	tokenStr, err = SetToken(c, appInstance, userID, t)
 	if err != nil {
 		logger.Logger(c).WithError(err).Errorf("resign jwt error")
 		return err

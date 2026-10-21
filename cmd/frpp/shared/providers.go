@@ -38,6 +38,8 @@ import (
 	"gorm.io/driver/mysql"
 	"gorm.io/driver/postgres"
 	"gorm.io/gorm"
+	gormlogger "gorm.io/gorm/logger"
+	"log"
 )
 
 type Finish struct {
@@ -98,6 +100,9 @@ func NewAndFinishNormalContext(param struct {
 
 func NewDBManager(ctx *app.Context, appInstance app.Application) app.DBManager {
 	logger.Logger(ctx).Infof("start to init database, type: %s", appInstance.GetConfig().DB.Type)
+	// ParameterizedQueries remains enabled in debug mode so SQL diagnostics do
+	// not disclose device secrets, tokens or proxy credentials.
+	dbConfig := &gorm.Config{Logger: gormlogger.New(log.New(os.Stderr, "", log.LstdFlags), gormlogger.Config{SlowThreshold: 200 * time.Millisecond, LogLevel: gormlogger.Warn, ParameterizedQueries: true})}
 	mgr := models.NewDBManager(appInstance.GetConfig().DB.Type)
 	appInstance.SetDBManager(mgr)
 
@@ -116,21 +121,21 @@ func NewDBManager(ctx *app.Context, appInstance app.Application) app.DBManager {
 			logger.Logger(ctx).Infof("new data location: [%s]", appInstance.GetConfig().DB.DSN)
 		}
 
-		if sqlitedb, err := gorm.Open(sqlite.Open(appInstance.GetConfig().DB.DSN), &gorm.Config{}); err != nil {
+		if sqlitedb, err := gorm.Open(sqlite.Open(appInstance.GetConfig().DB.DSN), dbConfig); err != nil {
 			logger.Logger(ctx).Panic(err)
 		} else {
 			appInstance.GetDBManager().SetDB(defs.DBTypeSQLite3, defs.DBRoleDefault, sqlitedb)
 			logger.Logger(ctx).Infof("init database success, data location: [%s]", appInstance.GetConfig().DB.DSN)
 		}
 	case defs.DBTypeMysql:
-		if mysqlDB, err := gorm.Open(mysql.Open(appInstance.GetConfig().DB.DSN), &gorm.Config{}); err != nil {
+		if mysqlDB, err := gorm.Open(mysql.Open(appInstance.GetConfig().DB.DSN), dbConfig); err != nil {
 			logger.Logger(ctx).Panic(err)
 		} else {
 			appInstance.GetDBManager().SetDB(defs.DBTypeMysql, defs.DBRoleDefault, mysqlDB)
 			logger.Logger(ctx).Infof("init database success, data type: [%s]", "mysql")
 		}
 	case defs.DBTypePostgres:
-		if postgresDB, err := gorm.Open(postgres.Open(appInstance.GetConfig().DB.DSN), &gorm.Config{}); err != nil {
+		if postgresDB, err := gorm.Open(postgres.Open(appInstance.GetConfig().DB.DSN), dbConfig); err != nil {
 			logger.Logger(ctx).Panic(err)
 		} else {
 			appInstance.GetDBManager().SetDB(defs.DBTypePostgres, defs.DBRoleDefault, postgresDB)
@@ -144,7 +149,7 @@ func NewDBManager(ctx *app.Context, appInstance app.Application) app.DBManager {
 	if err := models.ConfigureDBPool(mgr.GetDefaultDB(), cfg.DB.MaxOpenConns, cfg.DB.MaxIdleConns, time.Duration(cfg.DB.ConnMaxLifetimeSeconds)*time.Second); err != nil {
 		logger.Logger(ctx).Panic(err)
 	}
-	memoryDB, err := gorm.Open(sqlite.Open(":memory:"), &gorm.Config{})
+	memoryDB, err := gorm.Open(sqlite.Open(":memory:"), dbConfig)
 	if err != nil {
 		logger.Logger(ctx).Panic(err)
 	}

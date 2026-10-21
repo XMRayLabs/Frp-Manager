@@ -67,6 +67,26 @@ func testTunnelPortConflict(t *testing.T, usePostgres bool) {
 	if err = SaveTunnelConfig(ctx, member, second); err != nil {
 		t.Fatal(err)
 	}
+
+	if err = db.Model(&models.LanguageGroupServer{}).Where("language_group_id = ?", "b").Update("allowed_ports", "62000-63999").Error; err != nil {
+		t.Fatal(err)
+	}
+	// Even site administrators editing another owner's client must respect its grant.
+	for _, port := range []int{61999, 64000, 0} {
+		second.ConfigContent = []byte(fmt.Sprintf("{\"proxies\":[{\"name\":\"two\",\"type\":\"tcp\",\"remotePort\":%d,\"localPort\":81}]}", port))
+		if err = ValidateClientAllowedPorts(db, member, second); err == nil {
+			t.Fatalf("restart bypassed port restriction: %d", port)
+		}
+		if err = SaveTunnelConfig(ctx, admin, second); err == nil {
+			t.Fatalf("admin bypassed owner's port restriction: %d", port)
+		}
+	}
+	for _, port := range []int{62000, 63999} {
+		second.ConfigContent = []byte(fmt.Sprintf("{\"proxies\":[{\"name\":\"two\",\"type\":\"tcp\",\"remotePort\":%d,\"localPort\":81}]}", port))
+		if err = SaveTunnelConfig(ctx, member, second); err != nil {
+			t.Fatal(err)
+		}
+	}
 	db.Where("language_group_id = ?", "b").Delete(&models.LanguageGroupServer{})
 	if err = SaveTunnelConfig(ctx, member, second); err == nil {
 		t.Fatal("revoked server accepted")

@@ -2,6 +2,7 @@ package platform
 
 import (
 	"net/http"
+	"regexp"
 	"strings"
 
 	proxyapi "github.com/Sakurame1/frp-manager/biz/master/proxy"
@@ -72,7 +73,19 @@ func (n *nodeOverview) add(online, unconfigured, invalid, unavailable, upgrade b
 	}
 }
 
+var armv7VersionSuffix = regexp.MustCompile(`(?i)^v?(\d+\.\d+\.\d+)-armv7(?:-test)?$`)
+
+func normalizeNodeVersion(value string) string {
+	value = strings.TrimSpace(value)
+	if match := armv7VersionSuffix.FindStringSubmatch(value); len(match) == 2 {
+		return match[1]
+	}
+	return value
+}
+
 func needsNodeUpgrade(installed, current string) bool {
+	installed = normalizeNodeVersion(installed)
+	current = normalizeNodeVersion(current)
 	if strings.EqualFold(strings.TrimSpace(installed), "main") {
 		return true
 	}

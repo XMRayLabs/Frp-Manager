@@ -15,7 +15,6 @@ import (
 	"github.com/gin-gonic/gin"
 	"github.com/google/uuid"
 	"gorm.io/gorm"
-	"gorm.io/gorm/clause"
 	"net/http"
 	"strings"
 	"time"
@@ -37,17 +36,18 @@ func OrganizationRoutes(r *gin.RouterGroup, a app.Application) {
 }
 
 type organizationRequest struct {
-	ID       string `json:"id"`
-	Name     string `json:"name"`
-	Shared   *bool  `json:"shared"`
-	UserID   int    `json:"user_id"`
-	ServerID string `json:"server_id"`
-	Assigned bool   `json:"assigned"`
-	Confirm  bool   `json:"confirm"`
-	ClientID string `json:"client_id"`
-	Private  bool   `json:"private"`
-	Username string `json:"username"`
-	Email    string `json:"email"`
+	AllowedPorts *string `json:"allowed_ports"`
+	ID           string  `json:"id"`
+	Name         string  `json:"name"`
+	Shared       *bool   `json:"shared"`
+	UserID       int     `json:"user_id"`
+	ServerID     string  `json:"server_id"`
+	Assigned     bool    `json:"assigned"`
+	Confirm      bool    `json:"confirm"`
+	ClientID     string  `json:"client_id"`
+	Private      bool    `json:"private"`
+	Username     string  `json:"username"`
+	Email        string  `json:"email"`
 }
 
 func organizationHandler(a app.Application, action string) gin.HandlerFunc {
@@ -249,7 +249,7 @@ func organizationHandler(a app.Application, action string) gin.HandlerFunc {
 					return fmt.Errorf("请选择语系")
 				}
 				if req.Assigned {
-					if err := tx.Clauses(clause.OnConflict{DoNothing: true}).Create(&models.LanguageGroupServer{LanguageGroupID: group.ID, ServerID: req.ServerID}).Error; err != nil {
+					if err := saveServerPortAssignment(tx, group.ID, req.ServerID, req.AllowedPorts, server.ConfigContent); err != nil {
 						return err
 					}
 				} else {
@@ -275,6 +275,9 @@ func organizationHandler(a app.Application, action string) gin.HandlerFunc {
 				}
 				var account models.User
 				if err := tx.Where("user_id = ? AND tenant_id = ? AND role <> ?", req.UserID, u.GetTenantID(), defs.UserRole_Admin).First(&account).Error; err != nil {
+					return err
+				}
+				if err := validateMovingUserPorts(tx, req.UserID, group.ID); err != nil {
 					return err
 				}
 				grants := tx.Model(&models.LanguageGroupServer{}).Select("server_id").Where("language_group_id = ?", group.ID)
@@ -316,7 +319,12 @@ func organizationHandler(a app.Application, action string) gin.HandlerFunc {
 			if (action == "move" || action == "assign" && !req.Assigned) && !req.Confirm {
 				return nil
 			}
-			return auditOrganization(tx, u, group.ID, action, req.ID, fmt.Sprintf("user=%d server=%s", req.UserID, req.ServerID))
+			return auditOrganization(tx, u, group.ID, action, req.ID, fmt.Sprintf("user=%d server=%s allowed_ports=%v", req.UserID, req.ServerID, func() string {
+				if req.AllowedPorts == nil {
+					return "unchanged"
+				}
+				return *req.AllowedPorts
+			}()))
 		})
 		models.NodeIdentityMu.Unlock()
 		if err != nil {

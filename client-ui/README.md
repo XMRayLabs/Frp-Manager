@@ -6,7 +6,7 @@ Cross-platform client manager for frp-manager.
 
 - Windows: Electron desktop app, packaged as `exe`.
 - macOS: Electron desktop app, packaged as `dmg` or `zip`.
-- Android ARM64: Capacitor app with a native foreground service and bundled Go client core.
+- Android ARM64 and ARMv7 (32-bit): Capacitor app with a native foreground service and bundled Go client core.
 
 ## Development
 
@@ -53,3 +53,9 @@ waits for manager registration and returns the tail of `%ProgramFiles%\frp-manag
 
 The macOS app bundle is never modified in place because that would invalidate its signature. The standalone daemon
 installed by the GUI follows the desktop package version; update the GUI by installing a newer DMG/ZIP.
+
+
+The release workflow builds separate ARM64 and ARMv7 APKs with the same product version from `VERSION`.
+For a local ARMv7 build, set `FRP_ANDROID_ABI=armeabi-v7a` for both core preparation and Gradle, and install
+NDK `27.2.12479018`. `ANDROID_NDK_HOME` (or `ANDROID_HOME`), `ANDROID_NDK_HOST_TAG`, and `CC` can select
+the native toolchain. No architecture or test suffix is added to the application/core version.

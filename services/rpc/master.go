@@ -139,7 +139,7 @@ func GetClientCert(appInstance app.Application, clientID, clientSecret string, c
 	return resp.GetCert(), nil
 }
 
-func InitClient(cfg conf.Config, clientID, joinToken string, ephemeral *bool) (*pb.InitClientResponse, error) {
+func InitClient(cfg conf.Config, clientID, joinToken string, ephemeral *bool, deviceSecret ...string) (*pb.InitClientResponse, error) {
 	apiEndpoint := conf.GetAPIURL(cfg)
 
 	c := httpCli(cfg)
@@ -148,9 +148,14 @@ func InitClient(cfg conf.Config, clientID, joinToken string, ephemeral *bool) (*
 		ephemeral = lo.ToPtr(false) // persistent nodes by default
 	}
 
+	proof := ""
+	if len(deviceSecret) > 0 {
+		proof = deviceSecret[0]
+	}
 	rawReq, err := proto.Marshal(&pb.InitClientRequest{
-		ClientId:  &clientID,
-		Ephemeral: ephemeral,
+		DeviceSecret: &proof,
+		ClientId:     &clientID,
+		Ephemeral:    ephemeral,
 	})
 	if err != nil {
 		return nil, err
@@ -171,12 +176,17 @@ func InitClient(cfg conf.Config, clientID, joinToken string, ephemeral *bool) (*
 	return resp, nil
 }
 
-func GetClient(cfg conf.Config, clientID, joinToken string) (*pb.GetClientResponse, error) {
+func GetClient(cfg conf.Config, clientID, joinToken string, deviceSecret ...string) (*pb.GetClientResponse, error) {
 	apiEndpoint := conf.GetAPIURL(cfg)
 	c := httpCli(cfg)
 
+	proof := ""
+	if len(deviceSecret) > 0 {
+		proof = deviceSecret[0]
+	}
 	rawReq, err := proto.Marshal(&pb.GetClientRequest{
-		ClientId: &clientID,
+		DeviceSecret: &proof,
+		ClientId:     &clientID,
 	})
 	if err != nil {
 		return nil, err

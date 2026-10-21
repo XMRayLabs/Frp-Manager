@@ -139,7 +139,7 @@ func RecvConnector(appInstance app.Application, clientID string, reciver *defs.C
 				log.Errorf("response is not from the authenticated device")
 				continue
 			}
-			log.Debugf("recv success, resp: %+v", resp)
+			log.Debugf("recv success, event: %s, session: %s", resp.GetEvent(), resp.GetSessionId())
 			select {
 			case respCh <- resp:
 			default:

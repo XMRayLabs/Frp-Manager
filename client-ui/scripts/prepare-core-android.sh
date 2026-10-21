@@ -7,7 +7,7 @@ REPO_ROOT="$(cd "${CLIENT_UI_ROOT}/.." && pwd)"
 JNI_ROOT="${CLIENT_UI_ROOT}/android/app/src/main/jniLibs"
 
 command -v go >/dev/null 2>&1 || {
-  echo "Go toolchain not found. Install Go 1.25+ or set go on PATH." >&2
+  echo "Go toolchain not found. Install Go 1.27.3+ or set go on PATH." >&2
   exit 1
 }
 
@@ -33,7 +33,31 @@ build_android_core() {
     go build -trimpath -buildmode=pie -o "${output_dir}/libfrpp.so" -ldflags "${ldflags}" ./cmd/frppc
 }
 
-build_android_core arm64 arm64-v8a
+android_abi="${FRP_ANDROID_ABI:-arm64-v8a}"
+case "$android_abi" in
+  arm64-v8a)
+    build_android_core arm64 arm64-v8a
+    ;;
+  armeabi-v7a)
+    # Android/ARM requires external linking with the NDK compiler.
+    ndk_version="${ANDROID_NDK_VERSION:-27.2.12479018}"
+    ndk_root="${ANDROID_NDK_HOME:-${ANDROID_HOME:-${ANDROID_SDK_ROOT:-}}/ndk/${ndk_version}}"
+    host_tag="${ANDROID_NDK_HOST_TAG:-linux-x86_64}"
+    compiler="${CC:-${ndk_root}/toolchains/llvm/prebuilt/${host_tag}/bin/armv7a-linux-androideabi24-clang}"
+    if [[ ! -x "$compiler" ]]; then
+      echo "Android ARMv7 NDK compiler not found: $compiler" >&2
+      exit 1
+    fi
+    output_dir="${JNI_ROOT}/armeabi-v7a"
+    mkdir -p "$output_dir"
+    CGO_ENABLED=1 CC="$compiler" GOOS=android GOARCH=arm GOARM=7 \
+      go build -trimpath -buildmode=pie -o "${output_dir}/libfrpp.so" -ldflags "${ldflags}" ./cmd/frppc
+    ;;
+  *)
+    echo "Unsupported Android ABI: $android_abi" >&2
+    exit 1
+    ;;
+esac
 popd >/dev/null
 
 echo "Built Android core clients in ${JNI_ROOT}"
