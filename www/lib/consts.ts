@@ -1,3 +1,4 @@
+import { websiteAccountsValid } from './website-auth'
 import * as z from 'zod'
 import { Client, Server } from './pb/common'
 import { GetPlatformInfoResponse } from './pb/api_user'
@@ -72,6 +73,7 @@ export const TypedProxyConfigValid = (typedProxyCfg: TypedProxyConfig | undefine
   }
 
   if (typedProxyCfg.plugin && typedProxyCfg.plugin.type) {
+    if (typedProxyCfg.plugin.type === 'fm_http_auth' && (typedProxyCfg.type !== 'tcp' || !websiteAccountsValid(typedProxyCfg.plugin.accounts))) return false
     if (typedProxyCfg.type === 'tcp' || typedProxyCfg.type === 'udp') {
       if (!typedProxyCfg.remotePort) {
         console.log('remotePort is undefined')

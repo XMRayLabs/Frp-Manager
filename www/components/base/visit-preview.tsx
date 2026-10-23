@@ -110,7 +110,9 @@ function getServerHost(httpProxyConfig: HTTPProxyConfig, serverCfg: ServerConfig
 function PluginLocalDist({ plugins }: { plugins: TypedClientPluginOptions }) {
   return (<>
     {
-      plugins.type === "unix_domain_socket" ? (
+      plugins.type === "fm_http_auth" ? (
+        <span className="text-nowrap">{plugins.localAddr} · 网站认证（{plugins.accounts.length} 组账号）</span>
+      ) : plugins.type === "unix_domain_socket" ? (
         <span className="text-nowrap">{plugins.unixPath}</span>
       ) : plugins.type === "static_file" ? (
         <span className="text-nowrap">{plugins.localPath}</span>

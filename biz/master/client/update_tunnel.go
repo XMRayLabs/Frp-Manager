@@ -264,7 +264,7 @@ func UpdateFrpcHander(c *app.Context, req *pb.UpdateFRPCRequest) (resp *pb.Updat
 
 		resp, err := rpc.CallClient(childCtx, cliToUpdate.ClientID, pb.Event_EVENT_UPDATE_FRPC, cliReq)
 		if err != nil {
-			logger.Logger(childCtx).WithError(err).Errorf("update event send to client error, server: [%s], client: [%+v], updated client: [%+v]", serverID, cliToUpdate, cli)
+			logger.Logger(childCtx).WithError(err).Errorf("update event send to client error, server: [%s], client: [%s]", serverID, originClientID)
 		}
 
 		if resp == nil {

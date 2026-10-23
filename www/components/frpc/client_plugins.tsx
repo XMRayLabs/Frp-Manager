@@ -50,7 +50,7 @@ export function PluginConfigForm({ defaultPluginConfig, setPluginConfig, support
   }, [config, setPluginConfig])
 
   const handleTypeChange = (type: ClientPluginType) => {
-    updateConfig({ ...config, type })
+    updateConfig({ type } as TypedClientPluginOptions)
   }
 
   const pluginsToSelect = useMemo(() => {

@@ -1,6 +1,7 @@
 import { HeaderOperations } from './common'
 
 export type ClientPluginType =
+  | 'fm_http_auth'
   | 'http_proxy'
   | 'http2https'
   | 'https2http'
@@ -10,6 +11,7 @@ export type ClientPluginType =
   | 'unix_domain_socket'
 
 export type TypedClientPluginOptions =
+| WebsiteAuthPluginOptions
 | HTTP2HTTPSPluginOptions
 | HTTPProxyPluginOptions
 | HTTPS2HTTPPluginOptions
@@ -66,4 +68,15 @@ export interface StaticFilePluginOptions {
 export interface UnixDomainSocketPluginOptions {
   type: 'unix_domain_socket'
   unixPath?: string
+}
+
+export interface WebsiteAccount {
+  username: string
+  password?: string
+  passwordHash?: string
+}
+export interface WebsiteAuthPluginOptions {
+  type: 'fm_http_auth'
+  localAddr: string
+  accounts: WebsiteAccount[]
 }

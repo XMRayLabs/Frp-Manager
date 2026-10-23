@@ -1,6 +1,10 @@
 package utils
 
 import (
+	"encoding/json"
+	"fmt"
+
+	"github.com/Sakurame1/frp-manager/pkg/websiteauth"
 	"github.com/fatedier/frp/pkg/config"
 	v1 "github.com/fatedier/frp/pkg/config/v1"
 )
@@ -14,7 +18,67 @@ func LoadConfigureFromContent(content []byte, c any, strict bool) error {
 	if err != nil {
 		return err
 	}
-	return config.LoadConfigure(ans, c, strict)
+	clientConfig, ok := c.(*v1.ClientConfig)
+	if !ok {
+		return config.LoadConfigure(ans, c, strict)
+	}
+	// Decode the document with the upstream TOML/YAML/JSON parser, then extract
+	// our extension before upstream's closed plugin-type decoder runs.
+	var document map[string]json.RawMessage
+	if err := config.LoadConfigure(ans, &document, strict); err != nil {
+		return err
+	}
+	var proxies []map[string]json.RawMessage
+	if raw := document["proxies"]; len(raw) > 0 {
+		if err := json.Unmarshal(raw, &proxies); err != nil {
+			return err
+		}
+	}
+	extensions := map[int]*websiteauth.Options{}
+	for i, proxy := range proxies {
+		var plugin struct {
+			Type string `json:"type"`
+		}
+		if len(proxy["plugin"]) == 0 {
+			continue
+		}
+		if err := json.Unmarshal(proxy["plugin"], &plugin); err != nil {
+			return err
+		}
+		if plugin.Type != websiteauth.PluginType {
+			continue
+		}
+		var proxyType string
+		_ = json.Unmarshal(proxy["type"], &proxyType)
+		if proxyType != "tcp" {
+			return fmt.Errorf("网站访问认证仅支持 TCP 网站映射")
+		}
+		options, err := websiteauth.Decode(proxy["plugin"])
+		if err != nil {
+			return err
+		}
+		extensions[i] = options
+		delete(proxy, "plugin")
+	}
+	if len(extensions) == 0 {
+		return config.LoadConfigure(ans, c, strict)
+	}
+	raw, err := json.Marshal(proxies)
+	if err != nil {
+		return err
+	}
+	document["proxies"] = raw
+	raw, err = json.Marshal(document)
+	if err != nil {
+		return err
+	}
+	if err = config.LoadConfigure(raw, clientConfig, strict); err != nil {
+		return err
+	}
+	for i, options := range extensions {
+		clientConfig.Proxies[i].GetBaseConfig().Plugin = v1.TypedClientPluginOptions{Type: websiteauth.PluginType, ClientPluginOptions: options}
+	}
+	return nil
 }
 
 func LoadProxiesFromContent(content []byte) ([]v1.TypedProxyConfig, error) {
@@ -100,4 +164,19 @@ func LoadServerConfig(content []byte, strict bool) (*v1.ServerConfig, error) {
 	}
 
 	return svrCfg, nil
+}
+
+// LoadProxyConfig uses the same extension-aware decoder for persisted tunnel rows.
+func LoadProxyConfig(content []byte) (v1.TypedProxyConfig, error) {
+	var empty v1.TypedProxyConfig
+	envelope := append([]byte(`{"proxies":[`), content...)
+	envelope = append(envelope, ']', '}')
+	configs, err := LoadProxiesFromContent(envelope)
+	if err != nil {
+		return empty, err
+	}
+	if len(configs) != 1 {
+		return empty, fmt.Errorf("invalid proxy config")
+	}
+	return configs[0], nil
 }

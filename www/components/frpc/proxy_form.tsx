@@ -1,3 +1,6 @@
+import { WebsiteAuthFields } from './website_auth_fields'
+import { websiteAccountsValid, websitePlugin, websiteTarget } from '@/lib/website-auth'
+import type { WebsiteAccount } from '@/types/plugin'
 import { HTTPProxyConfig, TCPProxyConfig, TypedProxyConfig, UDPProxyConfig, STCPProxyConfig } from '@/types/proxy'
 import * as z from 'zod'
 import React from 'react'
@@ -130,26 +133,31 @@ export const TCPProxyForm: React.FC<ProxyFormProps> = ({
   enablePreview,
 }) => {
   const defaultConfig = defaultProxyConfig as TCPProxyConfig
+  const authPlugin = defaultConfig.plugin?.type === 'fm_http_auth' ? defaultConfig.plugin : undefined
+  const target = authPlugin ? websiteTarget(authPlugin.localAddr) : undefined
+  const [websiteAuth, setWebsiteAuth] = useState(!!authPlugin)
+  const [websiteAccounts, setWebsiteAccounts] = useState<WebsiteAccount[]>(authPlugin?.accounts || [])
   const [timeoutID, setTimeoutID] = useState<NodeJS.Timeout | undefined>()
   const form = useForm<z.infer<typeof TCPConfigSchema>>({
     resolver: zodResolver(TCPConfigSchema),
     defaultValues: {
       remotePort: defaultConfig?.remotePort,
-      localIP: defaultConfig?.localIP,
-      localPort: defaultConfig?.localPort,
+      localIP: target?.localIP || defaultConfig?.localIP || '127.0.0.1',
+      localPort: target?.localPort || defaultConfig?.localPort,
     },
   })
 
   const [usePlugin, setUsePlugin] = useState<boolean>(
-    (defaultConfig.plugin && defaultConfig.plugin.type.length > 0) || false,
+    !authPlugin && !!defaultConfig.plugin?.type,
   )
-  const [pluginConfig, setPluginConfig] = useState<TypedClientPluginOptions | undefined>(defaultConfig.plugin)
+  const [pluginConfig, setPluginConfig] = useState<TypedClientPluginOptions | undefined>(authPlugin ? undefined : defaultConfig.plugin)
 
   const onSubmit = async (values: z.infer<typeof TCPConfigSchema>) => {
+    if (websiteAuth && !websiteAccountsValid(websiteAccounts)) { toast.error('请填写不重复的用户名和 8 至 72 字节的密码'); return }
     const cfgToSubmit = {
       ...defaultConfig,
       ...values,
-      plugin: usePlugin ? pluginConfig : undefined,
+      plugin: websiteAuth ? websitePlugin(values.localIP || '127.0.0.1', values.localPort!, websiteAccounts) : usePlugin ? pluginConfig : undefined,
       type: 'tcp',
       name: proxyName,
     } as TCPProxyConfig
@@ -213,7 +221,8 @@ export const TCPProxyForm: React.FC<ProxyFormProps> = ({
           label={t('proxy.form.remote_port') + '*'}
           placeholder="4321"
         />
-        <SwitchWithLabel
+        {!usePlugin && <WebsiteAuthFields enabled={websiteAuth} onEnabledChange={setWebsiteAuth} accounts={websiteAccounts} onAccountsChange={setWebsiteAccounts} />}
+        {!websiteAuth && <SwitchWithLabel
           name="usePlugin"
           label={t('proxy.form.use_plugin')}
           defaultValue={usePlugin}
@@ -224,6 +233,7 @@ export const TCPProxyForm: React.FC<ProxyFormProps> = ({
             }
           }}
         />
+        }
         {usePlugin ? (
           <PluginConfigForm defaultPluginConfig={pluginConfig} setPluginConfig={setPluginConfig} />
         ) : null}

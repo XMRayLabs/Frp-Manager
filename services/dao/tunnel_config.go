@@ -5,6 +5,7 @@ import (
 	"fmt"
 	"github.com/Sakurame1/frp-manager/defs"
 	"github.com/Sakurame1/frp-manager/models"
+	"github.com/Sakurame1/frp-manager/pkg/websiteauth"
 	"github.com/Sakurame1/frp-manager/services/app"
 	"github.com/Sakurame1/frp-manager/utils"
 	"gorm.io/gorm"
@@ -40,6 +41,20 @@ func SaveTunnelConfig(ctx *app.Context, u models.UserInfo, node *models.ClientEn
 		configs, err := utils.LoadProxiesFromContent(node.ConfigContent)
 		if err != nil {
 			return err
+		}
+		for _, cfg := range configs {
+			if cfg.GetBaseConfig().Plugin.Type != websiteauth.PluginType {
+				continue
+			}
+			id := node.OriginClientID
+			if id == "" {
+				id = node.ClientID
+			}
+			snapshot, ok := ctx.GetApp().GetClientsManager().GetRuntimeSnapshot(id)
+			connector := ctx.GetApp().GetClientsManager().Get(id)
+			if connector == nil || connector.CliType != defs.CliTypeClient || !ok || !snapshot.Healthy || !websiteauth.SupportsVersion(snapshot.Version.GetGitVersion()) {
+				return fmt.Errorf("网站访问认证需要客户端在线且内核为 1.1.6 或更新版本，请先升级客户端")
+			}
 		}
 		allowedPorts, err := ServerAllowedPorts(tx, &owner, node.ServerID)
 		if err != nil {
@@ -93,6 +108,35 @@ func SaveTunnelConfig(ctx *app.Context, u models.UserInfo, node *models.ClientEn
 				return err
 			}
 			rows = append(rows, row)
+		}
+		// Canonicalize extension options again at the persistence boundary so no
+		// alternate caller can accidentally store plaintext website passwords.
+		for _, cfg := range configs {
+			if cfg.GetBaseConfig().Plugin.Type != websiteauth.PluginType {
+				continue
+			}
+			var document map[string]json.RawMessage
+			if err = json.Unmarshal(node.ConfigContent, &document); err != nil {
+				return err
+			}
+			rawProxies := make([]json.RawMessage, 0, len(configs))
+			for _, entry := range configs {
+				raw, e := entry.MarshalJSON()
+				if e != nil {
+					return e
+				}
+				rawProxies = append(rawProxies, raw)
+			}
+			raw, e := json.Marshal(rawProxies)
+			if e != nil {
+				return e
+			}
+			document["proxies"] = raw
+			node.ConfigContent, err = json.Marshal(document)
+			if err != nil {
+				return err
+			}
+			break
 		}
 		if err = tx.Model(&models.Client{}).Where("client_id = ? AND tenant_id = ?", node.ClientID, node.TenantID).Updates(map[string]interface{}{"config_content": node.ConfigContent, "server_id": node.ServerID, "comment": node.Comment, "frps_url": node.FrpsUrl}).Error; err != nil {
 			return err

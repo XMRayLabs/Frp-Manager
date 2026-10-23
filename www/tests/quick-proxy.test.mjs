@@ -28,3 +28,12 @@ test('rejects invalid ports and unauthenticated built-in proxies', () => {
   assert.throws(() => buildQuickProxy({ ...defaults, purpose: 'http', password: '' }))
   assert.throws(() => buildQuickProxy({ ...defaults, purpose: 'socks5', username: ' ' }))
 })
+test('TCP websites preserve ports and use an explicit authentication plugin', () => {
+  const accounts = [{ username: 'one', password: 'first-secret' }, { username: 'two', password: 'second-secret' }]
+  const cfg = buildQuickProxy({ ...defaults, samePort: false, localIP: '::1', websiteAccounts: accounts })
+  assert.equal(cfg.remotePort, 9000)
+  assert.deepEqual(cfg.plugin, { type: 'fm_http_auth', localAddr: '[::1]:8080', accounts })
+  assert.throws(() => buildQuickProxy({ ...defaults, websiteAccounts: [] }))
+  assert.throws(() => buildQuickProxy({ ...defaults, websiteAccounts: [{ username: 'x', password: 'short' }] }))
+  assert.throws(() => buildQuickProxy({ ...defaults, websiteAccounts: [{ username: 'x', password: 'first-secret' }, { username: 'x', password: 'second-secret' }] }))
+})

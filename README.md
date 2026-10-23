@@ -42,6 +42,14 @@ Use **Upgrade core** in the client or standalone server action menu to send an o
 
 Older standalone servers must be updated manually to 1.1.5 or later once before they can accept these requests. Update Android through its APK and the panel's embedded server through the Docker image.
 
+## TCP Website Authentication
+
+Version **1.1.6** embeds **FRP 0.71.1**. Update the panel and the selected client to 1.1.6 or later, then enable **Website access password** in TCP quick setup or an existing TCP tunnel. Keep the original local destination and public port. Add, remove or change up to 32 username/password pairs; leaving an existing password blank keeps it. At least one account is required while enabled. Passwords are stored and distributed as bcrypt hashes.
+
+Browsers receive an HTTP Basic Auth prompt. Authentication is checked on every request and supports WebSockets. Updating authentication closes existing connections, including WebSockets, and discards cached credentials. Older clients reject the custom plugin rather than forwarding without authentication. Existing unprotected TCP mappings and HTTP/SOCKS5 forward proxies retain their behavior.
+
+This feature protects HTTP websites, not SSH/RDP or opaque HTTPS passthrough. Use a trusted HTTPS entry point on public networks: Basic Auth alone does not encrypt the browser connection. Outer credentials are stripped before reaching the website, whose own cookie-based login still works; an additional upstream Basic Auth login requires a separate arrangement.
+
 ## Install The Management Panel
 
 Requirements: Linux, Docker Engine, Docker Compose v2, and a public domain name.

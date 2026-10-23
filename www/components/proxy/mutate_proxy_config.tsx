@@ -108,7 +108,7 @@ const AdvancedProxyConfigMutateForm = ({
     },
     onError: (e) => {
       toast(t('proxy.config.create_failed'), {
-        description: JSON.stringify(e),
+        description: e instanceof Error ? e.message : String(e),
       })
       $proxyTableRefetchTrigger.set(Math.random())
     },

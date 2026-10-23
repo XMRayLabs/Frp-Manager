@@ -1,5 +1,8 @@
 'use client'
 
+import { WebsiteAuthFields } from '@/components/frpc/website_auth_fields'
+import { websiteAccountsValid } from '@/lib/website-auth'
+import type { WebsiteAccount } from '@/types/plugin'
 import { useState } from 'react'
 import { useMutation } from '@tanstack/react-query'
 import { useStore } from '@nanostores/react'
@@ -46,14 +49,16 @@ function CompactTunnelForm({ purpose, clientID, initialServerID, onPendingChange
   const [samePort, setSamePort] = useState(true)
   const [remotePort, setRemotePort] = useState('8080')
   const [localIP, setLocalIP] = useState('127.0.0.1')
+  const [websiteAuth, setWebsiteAuth] = useState(false)
+  const [websiteAccounts, setWebsiteAccounts] = useState<WebsiteAccount[]>([])
   const [suffix] = useState(() => nanoid(6))
   const tcp = purpose === 'tcp'
   const validPort = (value: string) => /^\d+$/.test(value) && Number(value) > 0 && Number(value) <= 65535
-  const valid = !!user?.userName && !!serverID && validPort(port) && (tcp ? !!localIP.trim() && (samePort || validPort(remotePort)) : !!username.trim() && !!password)
+  const valid = (!tcp || !websiteAuth || websiteAccountsValid(websiteAccounts)) && !!user?.userName && !!serverID && validPort(port) && (tcp ? !!localIP.trim() && (samePort || validPort(remotePort)) : !!username.trim() && !!password)
   const mutation = useMutation({
     mutationFn: async () => {
       if (!valid) throw new Error('请填写服务端、有效端口及认证信息')
-      const config = buildQuickProxy({ purpose, existing: false, port, samePort, remotePort, localIP, username, password, name: '', suffix })
+      const config = buildQuickProxy({ purpose, existing: false, port, samePort, remotePort, localIP, username, password, name: '', suffix, websiteAccounts: purpose === 'tcp' && websiteAuth ? websiteAccounts : undefined })
       config.name = automaticProxyName(user!.userName!, clientID, serverID!, config, suffix)
       return createProxyConfig({ clientId: clientID, serverId: serverID!, config: ObjToUint8Array({ proxies: [config] }), overwrite: false })
     },
@@ -75,7 +80,7 @@ function CompactTunnelForm({ purpose, clientID, initialServerID, onPendingChange
         <label className="flex items-center gap-2 text-sm"><input type="checkbox" checked={samePort} onChange={e => { setSamePort(e.target.checked); if (!e.target.checked) setRemotePort(port) }} />服务器端口与本机相同</label>
         {!samePort && <label className="grid max-w-sm gap-2 text-sm">服务器端口<Input type="number" min={1} max={65535} required value={remotePort} onChange={e => setRemotePort(e.target.value)} /></label>}
         <details className="text-sm"><summary className="cursor-pointer text-muted-foreground">目标地址：{localIP}</summary><label className="mt-3 grid max-w-sm gap-2">本机或局域网地址<Input value={localIP} onChange={e => setLocalIP(e.target.value)} /></label></details>
-        <p className="text-xs text-muted-foreground">适用于网站或其他 TCP 服务，登录验证由原服务提供。</p>
+        <WebsiteAuthFields enabled={websiteAuth} onEnabledChange={setWebsiteAuth} accounts={websiteAccounts} onAccountsChange={setWebsiteAccounts} />
       </> : <div className="flex flex-wrap items-center gap-4 text-xs text-muted-foreground">
         <span>使用客户端内置代理，无需安装额外程序。</span>
         <label className="flex items-center gap-2"><input type="checkbox" checked={showPassword} onChange={e => setShowPassword(e.target.checked)} />显示密码</label>

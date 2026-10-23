@@ -2,6 +2,7 @@ package models
 
 import (
 	"fmt"
+	"github.com/Sakurame1/frp-manager/utils"
 
 	"github.com/Sakurame1/frp-manager/defs"
 	"github.com/Sakurame1/frp-manager/pb"
@@ -56,9 +57,7 @@ func (p *ProxyConfigEntity) FillClientConfig(cli *ClientEntity) error {
 }
 
 func (p *ProxyConfigEntity) GetTypedProxyConfig() (v1.TypedProxyConfig, error) {
-	var cfg v1.TypedProxyConfig
-	err := cfg.UnmarshalJSON(p.Content)
-	return cfg, err
+	return utils.LoadProxyConfig(p.Content)
 }
 
 func (p *ProxyConfig) GetTypedProxyConfig() (v1.TypedProxyConfig, error) {

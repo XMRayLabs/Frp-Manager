@@ -108,7 +108,7 @@ func CreateProxyConfigWithTypedConfig(c *app.Context, param CreateProxyConfigWit
 	}
 
 	if !overwrite && err == nil {
-		logger.Logger(c).Errorf("proxy config already exist, cfg: [%+v]", proxyCfg)
+		logger.Logger(c).Errorf("proxy config already exist, name: [%s]", proxyCfg.Name)
 		return fmt.Errorf("proxy config already exist")
 	}
 

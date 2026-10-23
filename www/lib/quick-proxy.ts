@@ -1,6 +1,9 @@
+import { websitePlugin } from './website-auth.ts'
+import type { WebsiteAccount } from '../types/plugin.ts'
 import type { TCPProxyConfig } from '../types/proxy'
 
 export type QuickProxyOptions = {
+  websiteAccounts?: WebsiteAccount[]
   purpose: 'http' | 'socks5' | 'tcp'
   existing: boolean
   port: string
@@ -24,6 +27,7 @@ export function buildQuickProxy(options: QuickProxyOptions): TCPProxyConfig {
   if (forwarding) {
     config.localIP = localIP.trim()
     config.localPort = Number(port)
+    if (purpose === 'tcp' && options.websiteAccounts) config.plugin = websitePlugin(localIP, Number(port), options.websiteAccounts)
   } else {
     config.plugin = purpose === 'http'
       ? { type: 'http_proxy', httpUser: username.trim(), httpPassword: password }

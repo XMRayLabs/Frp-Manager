@@ -1,6 +1,6 @@
 {
   "name": "frp-manager",
-  "version": "1.1.5",
+  "version": "1.1.6",
   "private": true,
   "engines": {
     "node": ">=24 <25"
@@ -62,7 +62,7 @@
     "monaco-editor": "0.52.2",
     "nanoid": "^5.1.16",
     "nanostores": "^0.9.5",
-    "next": "15.5.27",
+    "next": "15.5.28",
     "next-themes": "^0.2.1",
     "react": "^18.2.0",
     "react-dom": "^18.2.0",
@@ -91,7 +91,7 @@
     "@types/react-dom": "^18.2.18",
     "autoprefixer": "^10.4.16",
     "eslint": "^9.39.4",
-    "eslint-config-next": "15.5.27",
+    "eslint-config-next": "15.5.28",
     "i18next-cli": "1.65.0",
     "postcss": "8.5.28",
     "tailwindcss": "^3.4.19",
