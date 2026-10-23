@@ -15,7 +15,7 @@ overrides:
   minimatch@3: 3.1.4
   micromatch: 4.0.8
   minimatch@9: 9.0.7
-  next: 15.5.27
+  next: 15.5.28
   picomatch: 2.3.2
   postcss: 8.5.28
   postcss>nanoid: 3.3.18
