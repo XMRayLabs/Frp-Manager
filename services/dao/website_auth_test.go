@@ -22,7 +22,13 @@ func TestWebsiteAuthenticationSaveRequiresNewClientAndHashesPasswords(t *testing
 	testWebsiteAuthenticationSave(t, false)
 }
 func TestPostgresWebsiteAuthenticationSave(t *testing.T) { testWebsiteAuthenticationSave(t, true) }
+func TestHTTPWebsiteAuthenticationRequiresNewClient(t *testing.T) {
+	testWebsiteAuthenticationSaveForProtocol(t, false, true)
+}
 func testWebsiteAuthenticationSave(t *testing.T, usePostgres bool) {
+	testWebsiteAuthenticationSaveForProtocol(t, usePostgres, false)
+}
+func testWebsiteAuthenticationSaveForProtocol(t *testing.T, usePostgres, httpWebsite bool) {
 	db, e := gorm.Open(sqlite.Open(":memory:"), &gorm.Config{})
 	if e != nil {
 		t.Fatal(e)
@@ -55,13 +61,20 @@ func testWebsiteAuthenticationSave(t *testing.T, usePostgres bool) {
 	a.SetClientsManager(connections)
 	ctx := app.NewContext(context.Background(), a)
 	body := []byte(`{"proxies":[{"name":"website","type":"tcp","remotePort":62000,"plugin":{"type":"fm_http_auth","localAddr":"127.0.0.1:8080","accounts":[{"username":"alice","password":"alice-secret"},{"username":"bob","password":"bob-secret"}]}}]}`)
-	for _, version := range []string{"", "1.1.5", "main", "1.1.6"} {
+	expectedVersion := "1.1.6"
+	versions := []string{"", "1.1.5", "main", "1.1.6"}
+	if httpWebsite {
+		expectedVersion = "1.1.7"
+		versions = append(versions, "1.1.7")
+		body = []byte(strings.Replace(string(body), `"type":"tcp","remotePort":62000`, `"type":"http","subdomain":"qwen-admin"`, 1))
+	}
+	for _, version := range versions {
 		if version != "" {
 			connections.Set("physical", defs.CliTypeClient, nil, &pb.ClientVersion{GitVersion: version})
 		}
 		node.ConfigContent = append([]byte(nil), body...)
 		e = SaveTunnelConfig(ctx, admin, node)
-		if version != "1.1.6" {
+		if version != expectedVersion {
 			if e == nil {
 				t.Fatalf("version %q accepted", version)
 			}

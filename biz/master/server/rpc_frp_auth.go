@@ -36,6 +36,9 @@ func FRPAuth(ctx *app.Context, req *pb.FRPAuthRequest) (*pb.FRPAuthResponse, err
 		if err != nil {
 			return reject(err)
 		}
+		if err := dao.AuthorizeWebsiteRegistration(db, user, server, req.GetProxyType(), req.GetNewProxy()); err != nil {
+			return reject(err)
+		}
 		content, _ := json.Marshal(map[string]interface{}{"type": req.GetProxyType(), "remotePort": req.GetRemotePort()})
 		if err := models.ValidateProxyAllowedPorts(allowed, content, server.ConfigContent); err != nil {
 			return reject(err)

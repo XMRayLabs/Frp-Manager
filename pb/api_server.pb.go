@@ -454,14 +454,15 @@ func (x *DeleteServerResponse) GetStatus() *Status {
 }
 
 type UpdateFRPSRequest struct {
-	state         protoimpl.MessageState `protogen:"open.v1"`
-	ServerId      *string                `protobuf:"bytes,1,opt,name=server_id,json=serverId,proto3,oneof" json:"server_id,omitempty"`
-	Config        []byte                 `protobuf:"bytes,2,opt,name=config,proto3,oneof" json:"config,omitempty"`
-	Comment       *string                `protobuf:"bytes,3,opt,name=comment,proto3,oneof" json:"comment,omitempty"`
-	ServerIp      *string                `protobuf:"bytes,4,opt,name=server_ip,json=serverIp,proto3,oneof" json:"server_ip,omitempty"`
-	FrpsUrls      []string               `protobuf:"bytes,5,rep,name=frps_urls,json=frpsUrls,proto3" json:"frps_urls,omitempty"`
-	unknownFields protoimpl.UnknownFields
-	sizeCache     protoimpl.SizeCache
+	state          protoimpl.MessageState `protogen:"open.v1"`
+	ServerId       *string                `protobuf:"bytes,1,opt,name=server_id,json=serverId,proto3,oneof" json:"server_id,omitempty"`
+	Config         []byte                 `protobuf:"bytes,2,opt,name=config,proto3,oneof" json:"config,omitempty"`
+	Comment        *string                `protobuf:"bytes,3,opt,name=comment,proto3,oneof" json:"comment,omitempty"`
+	ServerIp       *string                `protobuf:"bytes,4,opt,name=server_ip,json=serverIp,proto3,oneof" json:"server_ip,omitempty"`
+	FrpsUrls       []string               `protobuf:"bytes,5,rep,name=frps_urls,json=frpsUrls,proto3" json:"frps_urls,omitempty"`
+	WebsiteBaseUrl *string                `protobuf:"bytes,6,opt,name=website_base_url,json=websiteBaseUrl,proto3,oneof" json:"website_base_url,omitempty"`
+	unknownFields  protoimpl.UnknownFields
+	sizeCache      protoimpl.SizeCache
 }
 
 func (x *UpdateFRPSRequest) Reset() {
@@ -527,6 +528,13 @@ func (x *UpdateFRPSRequest) GetFrpsUrls() []string {
 		return x.FrpsUrls
 	}
 	return nil
+}
+
+func (x *UpdateFRPSRequest) GetWebsiteBaseUrl() string {
+	if x != nil && x.WebsiteBaseUrl != nil {
+		return *x.WebsiteBaseUrl
+	}
+	return ""
 }
 
 type UpdateFRPSResponse struct {
@@ -989,20 +997,22 @@ const file_api_server_proto_rawDesc = "" +
 	"_server_id\"N\n" +
 	"\x14DeleteServerResponse\x12+\n" +
 	"\x06status\x18\x01 \x01(\v2\x0e.common.StatusH\x00R\x06status\x88\x01\x01B\t\n" +
-	"\a_status\"\xe3\x01\n" +
+	"\a_status\"\xa7\x02\n" +
 	"\x11UpdateFRPSRequest\x12 \n" +
 	"\tserver_id\x18\x01 \x01(\tH\x00R\bserverId\x88\x01\x01\x12\x1b\n" +
 	"\x06config\x18\x02 \x01(\fH\x01R\x06config\x88\x01\x01\x12\x1d\n" +
 	"\acomment\x18\x03 \x01(\tH\x02R\acomment\x88\x01\x01\x12 \n" +
 	"\tserver_ip\x18\x04 \x01(\tH\x03R\bserverIp\x88\x01\x01\x12\x1b\n" +
-	"\tfrps_urls\x18\x05 \x03(\tR\bfrpsUrlsB\f\n" +
+	"\tfrps_urls\x18\x05 \x03(\tR\bfrpsUrls\x12-\n" +
+	"\x10website_base_url\x18\x06 \x01(\tH\x04R\x0ewebsiteBaseUrl\x88\x01\x01B\f\n" +
 	"\n" +
 	"_server_idB\t\n" +
 	"\a_configB\n" +
 	"\n" +
 	"\b_commentB\f\n" +
 	"\n" +
-	"_server_ip\"L\n" +
+	"_server_ipB\x13\n" +
+	"\x11_website_base_url\"L\n" +
 	"\x12UpdateFRPSResponse\x12+\n" +
 	"\x06status\x18\x01 \x01(\v2\x0e.common.StatusH\x00R\x06status\x88\x01\x01B\t\n" +
 	"\a_status\"C\n" +

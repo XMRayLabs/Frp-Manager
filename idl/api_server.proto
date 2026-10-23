@@ -52,6 +52,7 @@ message UpdateFRPSRequest {
   optional string comment = 3;
   optional string server_ip = 4;
   repeated string frps_urls = 5;
+  optional string website_base_url = 6;
 }
 
 message UpdateFRPSResponse {

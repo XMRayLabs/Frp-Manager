@@ -42,6 +42,12 @@ Use **Upgrade core** in the client or standalone server action menu to send an o
 
 Older standalone servers must be updated manually to 1.1.5 or later once before they can accept these requests. Update Android through its APK and the panel's embedded server through the Docker image.
 
+## Optional Subdomain Website Mapping
+
+New in 1.1.7, disabled by default and independently enabled per server. Update participating server cores to 1.1.7 before enabling the entry; optional multi-account website passwords also require client core 1.1.7. The Website mapping shortcut takes a name and local port and generates a URL such as `https://qwen-ig01.frp.xmray.de`. Saving automatically requests client configuration updates. Configure wildcard DNS, TLS and Nginx once per entry; no per-site public port or Nginx reload is needed. Separate FRPS servers need distinct entries. Existing TCP and forward proxy setup remains available.
+
+[Deployment and multi-server guide](docs/website-mapping.md) · [Nginx template](deploy/nginx.website.conf.example)
+
 ## TCP Website Authentication
 
 Version **1.1.6** embeds **FRP 0.71.1**. Update the panel and the selected client to 1.1.6 or later, then enable **Website access password** in TCP quick setup or an existing TCP tunnel. Keep the original local destination and public port. Add, remove or change up to 32 username/password pairs; leaving an existing password blank keeps it. At least one account is required while enabled. Passwords are stored and distributed as bcrypt hashes.

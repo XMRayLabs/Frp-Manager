@@ -32,10 +32,18 @@ func freePort(t *testing.T) int {
 	return port
 }
 func TestWebsiteOverActualFRPTunnelAndCredentialUpdate(t *testing.T) {
+	testWebsiteOverActualFRP(t, false)
+}
+func TestSubdomainWebsiteOverActualFRPTunnel(t *testing.T) { testWebsiteOverActualFRP(t, true) }
+func testWebsiteOverActualFRP(t *testing.T, httpWebsite bool) {
 	upstream := httptest.NewServer(http.HandlerFunc(func(w http.ResponseWriter, r *http.Request) { io.WriteString(w, "website-ok") }))
 	defer upstream.Close()
 	controlPort, publicPort := freePort(t), freePort(t)
 	cfg := &v1.ServerConfig{BindAddr: "127.0.0.1", BindPort: controlPort, ProxyBindAddr: "127.0.0.1"}
+	if httpWebsite {
+		cfg.VhostHTTPPort = publicPort
+		cfg.SubDomainHost = "frp.example.com"
+	}
 	if e := cfg.Complete(); e != nil {
 		t.Fatal(e)
 	}
@@ -46,6 +54,9 @@ func TestWebsiteOverActualFRPTunnelAndCredentialUpdate(t *testing.T) {
 	defer svr.Close()
 	go svr.Run(context.Background())
 	raw := []byte(fmt.Sprintf(`{"serverAddr":"127.0.0.1","serverPort":%d,"proxies":[{"name":"website","type":"tcp","remotePort":%d,"plugin":{"type":"fm_http_auth","localAddr":%q,"accounts":[{"username":"alice","password":"alice-secret"},{"username":"bob","password":"bob-secret"}]}}]}`, controlPort, publicPort, strings.TrimPrefix(upstream.URL, "http://")))
+	if httpWebsite {
+		raw = []byte(fmt.Sprintf(`{"serverAddr":"127.0.0.1","serverPort":%d,"proxies":[{"name":"website","type":"http","subdomain":"qwen-admin","plugin":{"type":"fm_http_auth","localAddr":%q,"accounts":[{"username":"alice","password":"alice-secret"},{"username":"bob","password":"bob-secret"}]}}]}`, controlPort, strings.TrimPrefix(upstream.URL, "http://")))
+	}
 	common, proxies, visitors, e := utils.LoadClientConfig(raw, true)
 	if e != nil {
 		t.Fatal(e)
@@ -69,6 +80,9 @@ func TestWebsiteOverActualFRPTunnelAndCredentialUpdate(t *testing.T) {
 	url := fmt.Sprintf("http://127.0.0.1:%d/", publicPort)
 	check := func(user, pass string) (int, string, error) {
 		req, _ := http.NewRequest("GET", url, nil)
+		if httpWebsite {
+			req.Host = "qwen-admin.frp.example.com"
+		}
 		if user != "" {
 			req.SetBasicAuth(user, pass)
 		}
@@ -106,4 +120,14 @@ func TestWebsiteOverActualFRPTunnelAndCredentialUpdate(t *testing.T) {
 	cli.UpdateAllConfigurer([]v1.ProxyConfigurer{replacement}, visitors)
 	wait("alice", "alice-secret", 401)
 	wait("bob", "bob-secret", 200)
+	if httpWebsite {
+		// Disabling the optional password restores a plain HTTP website with the same hostname.
+		plain := replacement.Clone()
+		plain.GetBaseConfig().Plugin = v1.TypedClientPluginOptions{}
+		host, port, _ := net.SplitHostPort(strings.TrimPrefix(upstream.URL, "http://"))
+		plain.GetBaseConfig().LocalIP = host
+		fmt.Sscan(port, &plain.GetBaseConfig().LocalPort)
+		cli.UpdateAllConfigurer([]v1.ProxyConfigurer{plain}, visitors)
+		wait("", "", 200)
+	}
 }

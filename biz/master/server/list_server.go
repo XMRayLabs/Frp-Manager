@@ -49,12 +49,13 @@ func ListServersHandler(c *app.Context, req *pb.ListServersRequest) (*pb.ListSer
 		Status: &pb.Status{Code: pb.RespCode_RESP_CODE_SUCCESS, Message: "ok"},
 		Servers: lo.Map(servers, func(c *models.ServerEntity, _ int) *pb.Server {
 			return &pb.Server{
-				Id:       lo.ToPtr(c.ServerID),
-				Config:   lo.ToPtr(serverConfigForUser(userInfo, c)),
-				Secret:   lo.ToPtr(serverSecretForUser(userInfo, c)),
-				Ip:       lo.ToPtr(c.ServerIP),
-				Comment:  lo.ToPtr(c.Comment),
-				FrpsUrls: c.FrpsUrls,
+				Id:             lo.ToPtr(c.ServerID),
+				Config:         lo.ToPtr(serverConfigForUser(userInfo, c)),
+				Secret:         lo.ToPtr(serverSecretForUser(userInfo, c)),
+				Ip:             lo.ToPtr(c.ServerIP),
+				Comment:        lo.ToPtr(c.Comment),
+				FrpsUrls:       c.FrpsUrls,
+				WebsiteBaseUrl: c.WebsiteBaseURL,
 			}
 		}),
 		Total: lo.ToPtr(int32(serverCounts)),

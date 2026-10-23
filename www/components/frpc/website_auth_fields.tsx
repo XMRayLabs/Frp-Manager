@@ -6,9 +6,9 @@ import type { WebsiteAccount } from '@/types/plugin'
 import { Input } from '../ui/input'
 import { Button } from '../ui/button'
 
-export function WebsiteAuthFields({ enabled, onEnabledChange, accounts, onAccountsChange, disabled = false }: {
+export function WebsiteAuthFields({ enabled, onEnabledChange, accounts, onAccountsChange, disabled = false, minimumVersion = '1.1.6' }: {
   enabled: boolean; onEnabledChange: (value: boolean) => void
-  accounts: WebsiteAccount[]; onAccountsChange: (accounts: WebsiteAccount[]) => void; disabled?: boolean
+  accounts: WebsiteAccount[]; onAccountsChange: (accounts: WebsiteAccount[]) => void; disabled?: boolean; minimumVersion?: string
 }) {
   const [show, setShow] = useState(false)
   const update = (index: number, changes: Partial<WebsiteAccount>) => onAccountsChange(accounts.map((account, i) => i === index ? { ...account, ...changes } : account))
@@ -18,7 +18,7 @@ export function WebsiteAuthFields({ enabled, onEnabledChange, accounts, onAccoun
       if (event.target.checked && accounts.length === 0) onAccountsChange([{ username: 'user', password: '' }])
     }} />网站访问密码（可选）</label>
     {enabled && <>
-      <p className="text-xs text-muted-foreground">仅用于 HTTP 网站；访问时弹出登录框。每组账号均可访问，可单独增删。需客户端升级至 1.1.6 或更新版本并在线后保存；公网建议通过 HTTPS 访问。</p>
+      <p className="text-xs text-muted-foreground">仅用于 HTTP 网站；访问时弹出登录框。每组账号均可访问，可单独增删。需客户端升级至 {minimumVersion} 或更新版本并在线后保存；公网建议通过 HTTPS 访问。</p>
       {accounts.map((account, index) => <div key={index} className="space-y-2 border-t pt-3">
         <div className="flex items-center justify-between gap-2"><span className="text-xs text-muted-foreground">账号 {index + 1}</span><Button type="button" variant="ghost" size="sm" onClick={() => onAccountsChange(accounts.filter((_, i) => i !== index))}>删除</Button></div>
         <div className="grid gap-2 sm:grid-cols-2">

@@ -1,5 +1,6 @@
 'use client'
 
+import { WebsiteMappingForm } from './website_mapping_form'
 import { WebsiteAuthFields } from '@/components/frpc/website_auth_fields'
 import { websiteAccountsValid } from '@/lib/website-auth'
 import type { WebsiteAccount } from '@/types/plugin'
@@ -19,11 +20,12 @@ import { ProxyConfigMutateDialog } from '../proxy/mutate_proxy_config'
 import { Button } from '../ui/button'
 import { Input } from '../ui/input'
 
-type Purpose = 'http' | 'socks5' | 'tcp'
+type Purpose = 'http' | 'socks5' | 'tcp' | 'website'
 const purposes: { value: Purpose; label: string }[] = [
   { value: 'http', label: 'HTTP 代理' },
   { value: 'socks5', label: 'SOCKS5 代理' },
   { value: 'tcp', label: 'TCP 映射' },
+  { value: 'website', label: '网站映射' },
 ]
 
 export function ClientQuickSetup({ clientID, serverID }: { clientID: string; serverID?: string }) {
@@ -35,11 +37,11 @@ export function ClientQuickSetup({ clientID, serverID }: { clientID: string; ser
       {purposes.map(item => <Button key={item.value} type="button" variant={purpose === item.value ? 'default' : 'outline'} disabled={pending} aria-pressed={purpose === item.value} onClick={() => setPurpose(item.value)}>{item.label}</Button>)}
       <ProxyConfigMutateDialog fullConfiguration defaultClientID={clientID} defaultServerID={serverID} triggerLabel="其他设置" />
     </div>
-    {purpose && <CompactTunnelForm key={purpose} purpose={purpose} clientID={clientID} initialServerID={serverID} onPendingChange={setPending} onClose={() => setPurpose(undefined)} />}
+    {purpose === 'website' ? <WebsiteMappingForm defaultClientID={clientID} defaultServerID={serverID} onPendingChange={setPending} onClose={() => setPurpose(undefined)} /> : purpose && <CompactTunnelForm key={purpose} purpose={purpose} clientID={clientID} initialServerID={serverID} onPendingChange={setPending} onClose={() => setPurpose(undefined)} />}
   </section>
 }
 
-function CompactTunnelForm({ purpose, clientID, initialServerID, onPendingChange, onClose }: { purpose: Purpose; clientID: string; initialServerID?: string; onPendingChange: (pending: boolean) => void; onClose: () => void }) {
+function CompactTunnelForm({ purpose, clientID, initialServerID, onPendingChange, onClose }: { purpose: Exclude<Purpose, 'website'>; clientID: string; initialServerID?: string; onPendingChange: (pending: boolean) => void; onClose: () => void }) {
   const user = useStore($userInfo)
   const [serverID, setServerID] = useState(initialServerID)
   const [port, setPort] = useState(purpose === 'socks5' ? '1080' : '8080')

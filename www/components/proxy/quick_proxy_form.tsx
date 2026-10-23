@@ -1,5 +1,6 @@
 'use client'
 
+import { WebsiteMappingForm } from '../frpc/website_mapping_form'
 import { WebsiteAuthFields } from '@/components/frpc/website_auth_fields'
 import { websiteAccountsValid } from '@/lib/website-auth'
 import type { WebsiteAccount } from '@/types/plugin'
@@ -21,7 +22,7 @@ import { Input } from '../ui/input'
 import { Button } from '../ui/button'
 import { toast } from 'sonner'
 
-type Purpose = 'http' | 'socks5' | 'tcp'
+type Purpose = 'http' | 'socks5' | 'tcp' | 'website'
 
 export function QuickProxyForm({ onSuccess, defaultClientID, defaultServerID, initialPurpose = 'http' }: { onSuccess?: () => void; defaultClientID?: string; defaultServerID?: string; initialPurpose?: Purpose }) {
   const { i18n } = useTranslation()
@@ -44,6 +45,7 @@ export function QuickProxyForm({ onSuccess, defaultClientID, defaultServerID, in
   const user = useStore($userInfo)
   const [suffix] = useState(() => nanoid(6))
   const [created, setCreated] = useState(false)
+  const [websitePending, setWebsitePending] = useState(false)
   const forwarding = purpose === 'tcp' || existing
   const publicPort = forwarding && !samePort ? remotePort : port
   const validPort = (value: string) => /^\d+$/.test(value) && Number(value) >= 1 && Number(value) <= 65535
@@ -54,6 +56,7 @@ export function QuickProxyForm({ onSuccess, defaultClientID, defaultServerID, in
   const mutation = useMutation({
     mutationFn: () => {
       if (!valid) throw new Error(text('请填写节点、有效端口及认证信息', 'Complete the nodes, valid ports and credentials'))
+      if (purpose === 'website') throw new Error('请使用网站映射表单')
       const config = buildQuickProxy({ purpose, existing, port, samePort, remotePort, localIP, username, password, name: '', suffix, websiteAccounts: purpose === 'tcp' && websiteAuth ? websiteAccounts : undefined })
       config.name = automaticProxyName(user!.userName!, clientId!, serverId!, config, suffix)
       return createProxyConfig({ clientId: clientId!, serverId: serverId!, config: ObjToUint8Array({ proxies: [config] }), overwrite: false })
@@ -67,17 +70,13 @@ export function QuickProxyForm({ onSuccess, defaultClientID, defaultServerID, in
     onError: (error: Error) => toast.error(error.message || text('创建失败，请检查节点权限及端口是否已占用', 'Creation failed. Check node permissions and port availability')),
   })
   return (
-    <form className="space-y-4" onSubmit={event => { event.preventDefault(); if (valid && !mutation.isPending && !created) mutation.mutate() }}>
+    <div className="space-y-4">
+      <div className="grid grid-cols-2 sm:grid-cols-4 gap-2" aria-label={text('选择用途', 'Choose purpose')}>
+        {(['http', 'socks5', 'tcp', 'website'] as const).map(value => <Button key={value} type="button" variant={purpose === value ? 'default' : 'outline'} disabled={mutation.isPending || created || websitePending} aria-pressed={purpose === value} onClick={() => { setPurpose(value); setPort(value === 'socks5' ? '1080' : '8080') }}>{({http:'HTTP 代理',socks5:'SOCKS5 代理',tcp:'TCP 映射',website:'网站映射'})[value]}</Button>)}
+      </div>
+      {purpose === 'website' ? <WebsiteMappingForm defaultClientID={defaultClientID} defaultServerID={defaultServerID} onSuccess={onSuccess} onPendingChange={setWebsitePending} /> : <form className="space-y-4" onSubmit={event => { event.preventDefault(); if (valid && !mutation.isPending && !created) mutation.mutate() }}>
       <fieldset disabled={mutation.isPending || created} className="space-y-4 disabled:opacity-70">
         <legend className="sr-only">{text('快捷配置', 'Quick setup')}</legend>
-        <div className="grid grid-cols-3 gap-2" aria-label={text('选择用途', 'Choose purpose')}>
-          {(['http', 'socks5', 'tcp'] as const).map(value => (
-            <Button key={value} type="button" variant={purpose === value ? 'default' : 'outline'} aria-pressed={purpose === value}
-              onClick={() => { setPurpose(value); setPort(value === 'socks5' ? '1080' : '8080') }}>
-              {value === 'http' ? text('HTTP 代理', 'HTTP proxy') : value === 'socks5' ? text('SOCKS5 代理', 'SOCKS5 proxy') : text('TCP 映射', 'TCP mapping')}
-            </Button>
-          ))}
-        </div>
         <p className="text-sm text-muted-foreground">{purpose === 'tcp'
           ? text('把本机网站或其他 TCP 服务映射到公网，无需域名。', 'Expose a local website or TCP service without a domain.')
           : text('通过服务器连接代理，使用所选客户端的网络访问外部资源。', 'Connect through the server and browse using the selected client’s network.')}</p>
@@ -111,6 +110,7 @@ export function QuickProxyForm({ onSuccess, defaultClientID, defaultServerID, in
         {created && <p>{text('请确保服务器防火墙放行该端口，节点在线后可连接。', 'Allow this port through the server firewall and connect when the nodes are online.')}</p>}
       </div>
       {!created && <Button className="w-full" type="submit" disabled={!valid || mutation.isPending}>{mutation.isPending ? text('正在创建…', 'Creating…') : text('创建配置', 'Create configuration')}</Button>}
-    </form>
+    </form>}
+    </div>
   )
 }

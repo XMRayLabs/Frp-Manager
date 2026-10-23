@@ -50,8 +50,8 @@ func LoadConfigureFromContent(content []byte, c any, strict bool) error {
 		}
 		var proxyType string
 		_ = json.Unmarshal(proxy["type"], &proxyType)
-		if proxyType != "tcp" {
-			return fmt.Errorf("网站访问认证仅支持 TCP 网站映射")
+		if proxyType != "tcp" && proxyType != "http" {
+			return fmt.Errorf("网站访问认证仅支持 TCP 或 HTTP 网站映射")
 		}
 		options, err := websiteauth.Decode(proxy["plugin"])
 		if err != nil {

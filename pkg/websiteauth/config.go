@@ -87,7 +87,9 @@ func (o *Options) Normalize() error {
 }
 
 // SupportsVersion checks the product core version, not the embedded FRP version.
-func SupportsVersion(version string) bool {
+func SupportsVersion(version string) bool     { return supportsVersion(version, 6) }
+func SupportsHTTPVersion(version string) bool { return supportsVersion(version, 7) }
+func supportsVersion(version string, patch int) bool {
 	parts := strings.Split(strings.TrimPrefix(version, "v"), ".")
 	if len(parts) != 3 {
 		return false
@@ -100,5 +102,5 @@ func SupportsVersion(version string) bool {
 		}
 		values[i] = n
 	}
-	return values[0] > 1 || (values[0] == 1 && (values[1] > 1 || (values[1] == 1 && values[2] >= 6)))
+	return values[0] > 1 || (values[0] == 1 && (values[1] > 1 || (values[1] == 1 && values[2] >= patch)))
 }

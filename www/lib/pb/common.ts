@@ -119,6 +119,10 @@ export interface Server {
      */
     comment?: string; // 用户自定义的备注
     /**
+     * @generated from protobuf field: optional string website_base_url = 7;
+     */
+    websiteBaseUrl?: string; // Optional public website entry, empty disables quick website mapping.
+    /**
      * @generated from protobuf field: repeated string frps_urls = 6;
      */
     frpsUrls: string[]; // 客户端用于连接frps的url，解决 frp 在 CDN 后的问题，格式类似 [tcp/ws/wss/quic/kcp]://example.com:7000，可以有多个
@@ -662,6 +666,7 @@ class Server$Type extends MessageType<Server> {
             { no: 3, name: "ip", kind: "scalar", opt: true, T: 9 /*ScalarType.STRING*/ },
             { no: 4, name: "config", kind: "scalar", opt: true, T: 9 /*ScalarType.STRING*/ },
             { no: 5, name: "comment", kind: "scalar", opt: true, T: 9 /*ScalarType.STRING*/ },
+            { no: 7, name: "website_base_url", kind: "scalar", opt: true, T: 9 /*ScalarType.STRING*/ },
             { no: 6, name: "frps_urls", kind: "scalar", repeat: 2 /*RepeatType.UNPACKED*/, T: 9 /*ScalarType.STRING*/ }
         ]);
     }
@@ -691,6 +696,9 @@ class Server$Type extends MessageType<Server> {
                     break;
                 case /* optional string comment */ 5:
                     message.comment = reader.string();
+                    break;
+                case /* optional string website_base_url */ 7:
+                    message.websiteBaseUrl = reader.string();
                     break;
                 case /* repeated string frps_urls */ 6:
                     message.frpsUrls.push(reader.string());
@@ -722,6 +730,9 @@ class Server$Type extends MessageType<Server> {
         /* optional string comment = 5; */
         if (message.comment !== undefined)
             writer.tag(5, WireType.LengthDelimited).string(message.comment);
+        /* optional string website_base_url = 7; */
+        if (message.websiteBaseUrl !== undefined)
+            writer.tag(7, WireType.LengthDelimited).string(message.websiteBaseUrl);
         /* repeated string frps_urls = 6; */
         for (let i = 0; i < message.frpsUrls.length; i++)
             writer.tag(6, WireType.LengthDelimited).string(message.frpsUrls[i]);

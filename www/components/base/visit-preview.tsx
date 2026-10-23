@@ -1,3 +1,4 @@
+import { websiteEntry, websiteURL } from '@/lib/website-mapping';
 import { Server } from "@/lib/pb/common";
 import { TypedClientPluginOptions } from "@/types/plugin";
 import { HTTPProxyConfig, TypedProxyConfig } from "@/types/proxy";
@@ -26,17 +27,19 @@ export function ServerSideVisitPreview({ server, typedProxyConfig, withIcon = tr
   const serverCfg = JSON.parse(server?.config || '{}') as ServerConfig;
   const serverAddress = server.ip || serverCfg.bindAddr || 'Unknown';
   const serverPort = getServerPort(typedProxyConfig, serverCfg);
+  const entry = websiteEntry(server.websiteBaseUrl, server.config);
+  const websiteAddress = typedProxyConfig.type === 'http' && typedProxyConfig.subdomain && entry ? websiteURL(entry.baseURL, typedProxyConfig.subdomain) : '';
 
   return <div className="flex items-center mb-2 sm:mb-0">
     {withIcon && <Globe className="w-4 h-4 text-blue-500 mr-2 flex-shrink-0" />}
-    <span className="text-nowrap">{typedProxyConfig.type == "http" ? "http://" : ""}{
+    {websiteAddress ? <a className="text-nowrap hover:underline" href={websiteAddress} target="_blank" rel="noopener noreferrer">{websiteAddress}</a> : <span className="text-nowrap">{typedProxyConfig.type == "http" ? "http://" : ""}{
       typedProxyConfig.type == "http" ? (
         getServerAuth(typedProxyConfig as HTTPProxyConfig) + getServerHost(typedProxyConfig as HTTPProxyConfig, serverCfg, serverAddress)
       ) : serverAddress
     }:{serverPort || "?"}{
         typedProxyConfig.type == "http" ?
           getServerPath(typedProxyConfig as HTTPProxyConfig) : ""
-      }</span>
+      }</span>}
   </div>
 }
 

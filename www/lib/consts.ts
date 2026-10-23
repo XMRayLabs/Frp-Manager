@@ -73,7 +73,7 @@ export const TypedProxyConfigValid = (typedProxyCfg: TypedProxyConfig | undefine
   }
 
   if (typedProxyCfg.plugin && typedProxyCfg.plugin.type) {
-    if (typedProxyCfg.plugin.type === 'fm_http_auth' && (typedProxyCfg.type !== 'tcp' || !websiteAccountsValid(typedProxyCfg.plugin.accounts))) return false
+    if (typedProxyCfg.plugin.type === 'fm_http_auth' && (!['tcp', 'http'].includes(typedProxyCfg.type) || !websiteAccountsValid(typedProxyCfg.plugin.accounts))) return false
     if (typedProxyCfg.type === 'tcp' || typedProxyCfg.type === 'udp') {
       if (!typedProxyCfg.remotePort) {
         console.log('remotePort is undefined')

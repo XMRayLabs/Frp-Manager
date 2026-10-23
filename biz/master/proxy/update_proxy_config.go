@@ -13,7 +13,6 @@ import (
 	"github.com/Sakurame1/frp-manager/utils"
 	"github.com/Sakurame1/frp-manager/utils/logger"
 	v1 "github.com/fatedier/frp/pkg/config/v1"
-	"github.com/fatedier/frp/pkg/msg"
 	"github.com/samber/lo"
 )
 
@@ -136,19 +135,17 @@ func UpdateWorkerLoadBalancerGroup(typedProxyCfg v1.TypedProxyConfig) v1.TypedPr
 			workerId = annotations[defs.FrpProxyAnnotationsKey_WorkerId]
 		}
 	}
-	httpProxyCfg := &v1.HTTPProxyConfig{}
-	msg := &msg.NewProxy{}
-	typedProxyCfg.ProxyConfigurer.MarshalToMsg(msg)
-	httpProxyCfg.UnmarshalFromMsg(msg)
-
-	if len(workerId) > 0 {
-		httpProxyCfg.LoadBalancer = v1.LoadBalancerConfig{
-			Group:    models.HttpIngressLBGroup(workerId, httpProxyCfg),
-			GroupKey: workerId,
-		}
+	if workerId == "" {
+		return typedProxyCfg
 	}
-
+	// Work on the full client configuration: FRP wire messages deliberately omit
+	// local addresses and client plugins, including website authentication.
+	cloned := typedProxyCfg.ProxyConfigurer.Clone()
+	httpProxyCfg, ok := cloned.(*v1.HTTPProxyConfig)
+	if !ok {
+		return typedProxyCfg
+	}
+	httpProxyCfg.LoadBalancer = v1.LoadBalancerConfig{Group: models.HttpIngressLBGroup(workerId, httpProxyCfg), GroupKey: workerId}
 	typedProxyCfg.ProxyConfigurer = httpProxyCfg
-
 	return typedProxyCfg
 }

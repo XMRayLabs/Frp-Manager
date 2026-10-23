@@ -10,6 +10,6 @@ export function automaticProxyName(owner: string, clientId: string, serverId: st
   const client = nodeName(clientId, owner, 'c')
   const server = nodeName(serverId, owner, 's')
   const protocol = config.plugin?.type === 'http_proxy' ? 'http-proxy' : config.plugin?.type === 'socks5' ? 'socks5' : config.type
-  const endpoint = 'remotePort' in config && config.remotePort ? String(config.remotePort) : fallback
+  const endpoint = 'remotePort' in config && config.remotePort ? String(config.remotePort) : 'subdomain' in config && config.subdomain ? config.subdomain : fallback
   return `${owner}.${client}.${server}.${endpoint}.${protocol}`
 }

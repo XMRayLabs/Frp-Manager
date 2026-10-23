@@ -52,8 +52,14 @@ func SaveTunnelConfig(ctx *app.Context, u models.UserInfo, node *models.ClientEn
 			}
 			snapshot, ok := ctx.GetApp().GetClientsManager().GetRuntimeSnapshot(id)
 			connector := ctx.GetApp().GetClientsManager().Get(id)
-			if connector == nil || connector.CliType != defs.CliTypeClient || !ok || !snapshot.Healthy || !websiteauth.SupportsVersion(snapshot.Version.GetGitVersion()) {
-				return fmt.Errorf("网站访问认证需要客户端在线且内核为 1.1.6 或更新版本，请先升级客户端")
+			minimum := "1.1.6"
+			supported := websiteauth.SupportsVersion(snapshot.Version.GetGitVersion())
+			if cfg.GetBaseConfig().Type == "http" {
+				minimum = "1.1.7"
+				supported = websiteauth.SupportsHTTPVersion(snapshot.Version.GetGitVersion())
+			}
+			if connector == nil || connector.CliType != defs.CliTypeClient || !ok || !snapshot.Healthy || !supported {
+				return fmt.Errorf("网站访问认证需要客户端在线且内核为 %s 或更新版本，请先升级客户端", minimum)
 			}
 		}
 		allowedPorts, err := ServerAllowedPorts(tx, &owner, node.ServerID)
@@ -63,6 +69,26 @@ func SaveTunnelConfig(ctx *app.Context, u models.UserInfo, node *models.ClientEn
 		var others []models.ProxyConfig
 		if err = tx.Where("server_id = ? AND client_id <> ? AND stopped = ?", node.ServerID, node.ClientID, false).Find(&others).Error; err != nil {
 			return err
+		}
+		var websiteRoutes []websiteRoute
+		// Stopped website routes remain reserved until deleted, so stopping a site cannot let another user take its address.
+		var otherWebsites []models.ProxyConfig
+		if err = tx.Where("server_id = ? AND (client_id <> ? OR stopped = ?) AND type IN ?", node.ServerID, node.ClientID, true, []string{"http", "https"}).Find(&otherWebsites).Error; err != nil {
+			return err
+		}
+		incomingNames := map[string]bool{}
+		for _, cfg := range configs {
+			incomingNames[cfg.GetBaseConfig().Name] = true
+		}
+		for _, row := range otherWebsites {
+			if row.ClientID == node.ClientID && incomingNames[row.Name] {
+				continue
+			}
+			routes, e := websiteRoutesFromRow(row.Content, server.ConfigContent)
+			if e != nil {
+				return e
+			}
+			websiteRoutes = append(websiteRoutes, routes...)
 		}
 		occupied := map[string]bool{}
 		for _, row := range others {
@@ -82,6 +108,12 @@ func SaveTunnelConfig(ctx *app.Context, u models.UserInfo, node *models.ClientEn
 				return err
 			}
 			if err = row.FillTypedProxyConfig(cfg); err != nil {
+				return err
+			}
+			if err := validateWebsiteMapping(&server, cfg); err != nil {
+				return err
+			}
+			if err := reserveWebsiteRoutes(&websiteRoutes, row.Content, server.ConfigContent); err != nil {
 				return err
 			}
 			if err := models.ValidateProxyAllowedPorts(allowedPorts, row.Content, server.ConfigContent); err != nil {

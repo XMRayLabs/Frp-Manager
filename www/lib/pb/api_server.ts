@@ -29,6 +29,10 @@ export interface InitServerRequest {
      * @generated from protobuf field: optional string comment = 3;
      */
     comment?: string;
+    /**
+     * @generated from protobuf field: optional string device_secret = 4;
+     */
+    deviceSecret?: string;
 }
 /**
  * @generated from protobuf message api_server.InitServerResponse
@@ -85,6 +89,10 @@ export interface GetServerRequest {
      * @generated from protobuf field: optional string server_id = 1;
      */
     serverId?: string;
+    /**
+     * @generated from protobuf field: optional string device_secret = 2;
+     */
+    deviceSecret?: string;
 }
 /**
  * @generated from protobuf message api_server.GetServerResponse
@@ -141,6 +149,10 @@ export interface UpdateFRPSRequest {
      * @generated from protobuf field: repeated string frps_urls = 5;
      */
     frpsUrls: string[];
+    /**
+     * @generated from protobuf field: optional string website_base_url = 6;
+     */
+    websiteBaseUrl?: string;
 }
 /**
  * @generated from protobuf message api_server.UpdateFRPSResponse
@@ -233,7 +245,8 @@ class InitServerRequest$Type extends MessageType<InitServerRequest> {
         super("api_server.InitServerRequest", [
             { no: 1, name: "server_id", kind: "scalar", opt: true, T: 9 /*ScalarType.STRING*/ },
             { no: 2, name: "server_ip", kind: "scalar", opt: true, T: 9 /*ScalarType.STRING*/ },
-            { no: 3, name: "comment", kind: "scalar", opt: true, T: 9 /*ScalarType.STRING*/ }
+            { no: 3, name: "comment", kind: "scalar", opt: true, T: 9 /*ScalarType.STRING*/ },
+            { no: 4, name: "device_secret", kind: "scalar", opt: true, T: 9 /*ScalarType.STRING*/ }
         ]);
     }
     create(value?: PartialMessage<InitServerRequest>): InitServerRequest {
@@ -256,6 +269,9 @@ class InitServerRequest$Type extends MessageType<InitServerRequest> {
                 case /* optional string comment */ 3:
                     message.comment = reader.string();
                     break;
+                case /* optional string device_secret */ 4:
+                    message.deviceSecret = reader.string();
+                    break;
                 default:
                     let u = options.readUnknownField;
                     if (u === "throw")
@@ -277,6 +293,9 @@ class InitServerRequest$Type extends MessageType<InitServerRequest> {
         /* optional string comment = 3; */
         if (message.comment !== undefined)
             writer.tag(3, WireType.LengthDelimited).string(message.comment);
+        /* optional string device_secret = 4; */
+        if (message.deviceSecret !== undefined)
+            writer.tag(4, WireType.LengthDelimited).string(message.deviceSecret);
         let u = options.writeUnknownFields;
         if (u !== false)
             (u == true ? UnknownFieldHandler.onWrite : u)(this.typeName, message, writer);
@@ -465,7 +484,8 @@ export const ListServersResponse = new ListServersResponse$Type();
 class GetServerRequest$Type extends MessageType<GetServerRequest> {
     constructor() {
         super("api_server.GetServerRequest", [
-            { no: 1, name: "server_id", kind: "scalar", opt: true, T: 9 /*ScalarType.STRING*/ }
+            { no: 1, name: "server_id", kind: "scalar", opt: true, T: 9 /*ScalarType.STRING*/ },
+            { no: 2, name: "device_secret", kind: "scalar", opt: true, T: 9 /*ScalarType.STRING*/ }
         ]);
     }
     create(value?: PartialMessage<GetServerRequest>): GetServerRequest {
@@ -482,6 +502,9 @@ class GetServerRequest$Type extends MessageType<GetServerRequest> {
                 case /* optional string server_id */ 1:
                     message.serverId = reader.string();
                     break;
+                case /* optional string device_secret */ 2:
+                    message.deviceSecret = reader.string();
+                    break;
                 default:
                     let u = options.readUnknownField;
                     if (u === "throw")
@@ -497,6 +520,9 @@ class GetServerRequest$Type extends MessageType<GetServerRequest> {
         /* optional string server_id = 1; */
         if (message.serverId !== undefined)
             writer.tag(1, WireType.LengthDelimited).string(message.serverId);
+        /* optional string device_secret = 2; */
+        if (message.deviceSecret !== undefined)
+            writer.tag(2, WireType.LengthDelimited).string(message.deviceSecret);
         let u = options.writeUnknownFields;
         if (u !== false)
             (u == true ? UnknownFieldHandler.onWrite : u)(this.typeName, message, writer);
@@ -660,7 +686,8 @@ class UpdateFRPSRequest$Type extends MessageType<UpdateFRPSRequest> {
             { no: 2, name: "config", kind: "scalar", opt: true, T: 12 /*ScalarType.BYTES*/ },
             { no: 3, name: "comment", kind: "scalar", opt: true, T: 9 /*ScalarType.STRING*/ },
             { no: 4, name: "server_ip", kind: "scalar", opt: true, T: 9 /*ScalarType.STRING*/ },
-            { no: 5, name: "frps_urls", kind: "scalar", repeat: 2 /*RepeatType.UNPACKED*/, T: 9 /*ScalarType.STRING*/ }
+            { no: 5, name: "frps_urls", kind: "scalar", repeat: 2 /*RepeatType.UNPACKED*/, T: 9 /*ScalarType.STRING*/ },
+            { no: 6, name: "website_base_url", kind: "scalar", opt: true, T: 9 /*ScalarType.STRING*/ }
         ]);
     }
     create(value?: PartialMessage<UpdateFRPSRequest>): UpdateFRPSRequest {
@@ -690,6 +717,9 @@ class UpdateFRPSRequest$Type extends MessageType<UpdateFRPSRequest> {
                 case /* repeated string frps_urls */ 5:
                     message.frpsUrls.push(reader.string());
                     break;
+                case /* optional string website_base_url */ 6:
+                    message.websiteBaseUrl = reader.string();
+                    break;
                 default:
                     let u = options.readUnknownField;
                     if (u === "throw")
@@ -717,6 +747,9 @@ class UpdateFRPSRequest$Type extends MessageType<UpdateFRPSRequest> {
         /* repeated string frps_urls = 5; */
         for (let i = 0; i < message.frpsUrls.length; i++)
             writer.tag(5, WireType.LengthDelimited).string(message.frpsUrls[i]);
+        /* optional string website_base_url = 6; */
+        if (message.websiteBaseUrl !== undefined)
+            writer.tag(6, WireType.LengthDelimited).string(message.websiteBaseUrl);
         let u = options.writeUnknownFields;
         if (u !== false)
             (u == true ? UnknownFieldHandler.onWrite : u)(this.typeName, message, writer);

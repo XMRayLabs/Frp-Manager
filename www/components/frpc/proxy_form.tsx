@@ -461,6 +461,10 @@ export const HTTPProxyForm: React.FC<ProxyFormProps> = ({
   enablePreview,
 }) => {
   const defaultConfig = defaultProxyConfig as HTTPProxyConfig
+  const authPlugin = defaultConfig.plugin?.type === 'fm_http_auth' ? defaultConfig.plugin : undefined
+  const authTarget = authPlugin ? websiteTarget(authPlugin.localAddr) : undefined
+  const [websiteAuth, setWebsiteAuth] = useState(!!authPlugin)
+  const [websiteAccounts, setWebsiteAccounts] = useState<WebsiteAccount[]>(authPlugin?.accounts || [])
   const [timeoutID, setTimeoutID] = useState<NodeJS.Timeout | undefined>()
   const [moreSettings, setMoreSettings] = useState(false)
   const [useAuth, setUseAuth] = useState(false)
@@ -468,8 +472,8 @@ export const HTTPProxyForm: React.FC<ProxyFormProps> = ({
   const form = useForm<z.infer<typeof HTTPConfigSchema>>({
     resolver: zodResolver(HTTPConfigSchema),
     defaultValues: {
-      localIP: defaultConfig?.localIP,
-      localPort: defaultConfig?.localPort,
+      localIP: authTarget?.localIP || defaultConfig?.localIP,
+      localPort: authTarget?.localPort || defaultConfig?.localPort,
       subdomain: defaultConfig?.subdomain,
       locations: defaultConfig?.locations,
       customDomains: defaultConfig?.customDomains,
@@ -479,17 +483,20 @@ export const HTTPProxyForm: React.FC<ProxyFormProps> = ({
   })
 
   const [usePlugin, setUsePlugin] = useState<boolean>(
-    (defaultConfig.plugin && defaultConfig.plugin.type.length > 0) || false,
+    !authPlugin && !!defaultConfig.plugin?.type,
   )
 
-  const [pluginConfig, setPluginConfig] = useState<TypedClientPluginOptions | undefined>(defaultConfig.plugin)
+  const [pluginConfig, setPluginConfig] = useState<TypedClientPluginOptions | undefined>(authPlugin ? undefined : defaultConfig.plugin)
 
   const onSubmit = async (values: z.infer<typeof HTTPConfigSchema>) => {
+    if (websiteAuth && !websiteAccountsValid(websiteAccounts)) { toast.error('请填写有效的网站认证账号和密码'); return }
     const cfgToSubmit = {
       ...defaultConfig,
       ...values,
-      plugin: usePlugin ? pluginConfig : undefined,
+      plugin: websiteAuth ? websitePlugin(values.localIP || '127.0.0.1', values.localPort!, websiteAccounts) : usePlugin ? pluginConfig : undefined,
       type: 'http',
+      httpUser: websiteAuth ? undefined : values.httpUser,
+      httpPassword: websiteAuth ? undefined : values.httpPassword,
       name: proxyName,
     } as HTTPProxyConfig
     if (!TypedProxyConfigValid(cfgToSubmit)) {
@@ -572,7 +579,8 @@ export const HTTPProxyForm: React.FC<ProxyFormProps> = ({
           placeholder={'your.example.com'}
         />
         <FormDescription>{t('proxy.form.domain_description')}</FormDescription>
-        <SwitchWithLabel
+        {!usePlugin && <WebsiteAuthFields minimumVersion="1.1.7" enabled={websiteAuth} onEnabledChange={setWebsiteAuth} accounts={websiteAccounts} onAccountsChange={setWebsiteAccounts} />}
+        {!websiteAuth && <SwitchWithLabel
           name="usePlugin"
           defaultValue={usePlugin}
           setValue={(value) => {
@@ -582,7 +590,7 @@ export const HTTPProxyForm: React.FC<ProxyFormProps> = ({
             }
           }}
           label={t('proxy.form.use_plugin')}
-        />
+        />}
         {usePlugin ? (
           <PluginConfigForm defaultPluginConfig={pluginConfig} setPluginConfig={setPluginConfig} />
         ) : null}

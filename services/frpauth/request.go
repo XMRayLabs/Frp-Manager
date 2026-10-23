@@ -38,6 +38,9 @@ func Decode(body io.Reader) (*pb.FRPAuthRequest, error) {
 		}
 		req.User, req.Token = c.User.User, c.User.Metas[defs.FRPAuthTokenKey]
 		req.ProxyType, req.RemotePort = c.ProxyType, int32(c.RemotePort)
+		if c.ProxyType == "http" || c.ProxyType == "https" {
+			req.NewProxy, _ = json.Marshal(c.NewProxy)
+		}
 	case "Ping", "NewWorkConn":
 		var c struct {
 			User plugin.UserInfo `json:"user"`

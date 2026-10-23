@@ -38,7 +38,7 @@ export type ProxyConfigMutateDialogProps = {
   fullConfiguration?: boolean
   defaultClientID?: string
   defaultServerID?: string
-  initialPurpose?: 'http' | 'socks5' | 'tcp'
+  initialPurpose?: 'http' | 'socks5' | 'tcp' | 'website'
   triggerLabel?: string
   overwrite?: boolean
   defaultProxyConfig?: TypedProxyConfig
@@ -54,7 +54,7 @@ export const ProxyConfigMutateDialog = ({ ...props }: ProxyConfigMutateDialogPro
     <Dialog>
       <DialogTrigger asChild>
         <Button variant="outline" className="w-fit">
-          {props.triggerLabel ?? '添加隧道（HTTP / SOCKS5 / TCP）'}
+          {props.triggerLabel ?? '添加隧道（代理 / TCP / 网站）'}
         </Button>
       </DialogTrigger>
       <DialogContent className="w-[min(96vw,52rem)] max-w-[52rem] max-h-[90vh] overflow-auto">

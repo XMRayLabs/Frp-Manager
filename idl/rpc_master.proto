@@ -88,6 +88,8 @@ message FRPAuthRequest {
   string operation = 3;
   string proxy_type = 4;
   int32 remote_port = 5;
+  // Native NewProxy payload, supplied by the authenticated server for website route authorization.
+  bytes new_proxy = 6;
 
   ServerBase base = 255;
 }

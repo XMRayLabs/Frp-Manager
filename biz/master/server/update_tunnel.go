@@ -8,6 +8,7 @@ import (
 	"github.com/Sakurame1/frp-manager/conf"
 	"github.com/Sakurame1/frp-manager/defs"
 	"github.com/Sakurame1/frp-manager/pb"
+	"github.com/Sakurame1/frp-manager/pkg/websiteauth"
 	"github.com/Sakurame1/frp-manager/services/app"
 	"github.com/Sakurame1/frp-manager/services/dao"
 	"github.com/Sakurame1/frp-manager/services/rpc"
@@ -36,6 +37,15 @@ func UpdateFrpsHander(c *app.Context, req *pb.UpdateFRPSRequest) (*pb.UpdateFRPS
 		return nil, err
 	}
 
+	// An old daemon cannot report website route details to the panel. Require
+	// an upgrade before opting into this shared gateway, leaving old servers off.
+	if req.GetWebsiteBaseUrl() != "" && srv.WebsiteBaseURL == nil && serverID != defs.DefaultServerID {
+		snapshot, ok := c.GetApp().GetClientsManager().GetRuntimeSnapshot(serverID)
+		if !ok || !snapshot.Healthy || !websiteauth.SupportsHTTPVersion(snapshot.Version.GetGitVersion()) {
+			return nil, fmt.Errorf("启用网站入口前，请让服务端在线并升级至 1.1.7 或更新版本")
+		}
+	}
+
 	srvCfg, err := utils.LoadServerConfig(configStr, true)
 	if srvCfg == nil || err != nil {
 		logger.Logger(context.Background()).WithError(err).Errorf("cannot load server config")
@@ -52,6 +62,13 @@ func UpdateFrpsHander(c *app.Context, req *pb.UpdateFRPSRequest) (*pb.UpdateFRPS
 		return nil, err
 	}
 
+	if req.WebsiteBaseUrl != nil {
+		if req.GetWebsiteBaseUrl() == "" {
+			srv.WebsiteBaseURL = nil
+		} else {
+			srv.WebsiteBaseURL = lo.ToPtr(req.GetWebsiteBaseUrl())
+		}
+	}
 	srv.Comment = req.GetComment()
 	if len(req.GetServerIp()) > 0 {
 		srv.ServerIP = req.GetServerIp()

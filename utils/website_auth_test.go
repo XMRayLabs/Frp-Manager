@@ -11,6 +11,7 @@ import (
 
 func TestWebsiteAuthConfigRoundTripAndOldClientRejection(t *testing.T) {
 	for _, raw := range []string{
+		`{"proxies":[{"name":"website","type":"http","subdomain":"qwen-admin","plugin":{"type":"fm_http_auth","localAddr":"127.0.0.1:8080","accounts":[{"username":"user","password":"secret-pass"}]}}]}`,
 		`{"proxies":[{"name":"website","type":"tcp","remotePort":62000,"plugin":{"type":"fm_http_auth","localAddr":"127.0.0.1:8080","accounts":[{"username":"user","password":"secret-pass"}]}}]}`,
 		`[[proxies]]
 name="website"

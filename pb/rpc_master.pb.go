@@ -596,9 +596,11 @@ type FRPAuthRequest struct {
 	User  string                 `protobuf:"bytes,1,opt,name=user,proto3" json:"user,omitempty"`
 	Token string                 `protobuf:"bytes,2,opt,name=token,proto3" json:"token,omitempty"`
 	// NewProxy carries the requested type and public port for server-side authorization.
-	Operation     string      `protobuf:"bytes,3,opt,name=operation,proto3" json:"operation,omitempty"`
-	ProxyType     string      `protobuf:"bytes,4,opt,name=proxy_type,json=proxyType,proto3" json:"proxy_type,omitempty"`
-	RemotePort    int32       `protobuf:"varint,5,opt,name=remote_port,json=remotePort,proto3" json:"remote_port,omitempty"`
+	Operation  string `protobuf:"bytes,3,opt,name=operation,proto3" json:"operation,omitempty"`
+	ProxyType  string `protobuf:"bytes,4,opt,name=proxy_type,json=proxyType,proto3" json:"proxy_type,omitempty"`
+	RemotePort int32  `protobuf:"varint,5,opt,name=remote_port,json=remotePort,proto3" json:"remote_port,omitempty"`
+	// Native NewProxy payload, supplied by the authenticated server for website route authorization.
+	NewProxy      []byte      `protobuf:"bytes,6,opt,name=new_proxy,json=newProxy,proto3" json:"new_proxy,omitempty"`
 	Base          *ServerBase `protobuf:"bytes,255,opt,name=base,proto3" json:"base,omitempty"`
 	unknownFields protoimpl.UnknownFields
 	sizeCache     protoimpl.SizeCache
@@ -667,6 +669,13 @@ func (x *FRPAuthRequest) GetRemotePort() int32 {
 		return x.RemotePort
 	}
 	return 0
+}
+
+func (x *FRPAuthRequest) GetNewProxy() []byte {
+	if x != nil {
+		return x.NewProxy
+	}
+	return nil
 }
 
 func (x *FRPAuthRequest) GetBase() *ServerBase {
@@ -1485,7 +1494,7 @@ const file_rpc_master_proto_rawDesc = "" +
 	"\x04base\x18\xff\x01 \x01(\v2\x12.master.ServerBaseR\x04base\"f\n" +
 	"\x14PullServerConfigResp\x12&\n" +
 	"\x06status\x18\x01 \x01(\v2\x0e.common.StatusR\x06status\x12&\n" +
-	"\x06server\x18\x02 \x01(\v2\x0e.common.ServerR\x06server\"\xc1\x01\n" +
+	"\x06server\x18\x02 \x01(\v2\x0e.common.ServerR\x06server\"\xde\x01\n" +
 	"\x0eFRPAuthRequest\x12\x12\n" +
 	"\x04user\x18\x01 \x01(\tR\x04user\x12\x14\n" +
 	"\x05token\x18\x02 \x01(\tR\x05token\x12\x1c\n" +
@@ -1493,7 +1502,8 @@ const file_rpc_master_proto_rawDesc = "" +
 	"\n" +
 	"proxy_type\x18\x04 \x01(\tR\tproxyType\x12\x1f\n" +
 	"\vremote_port\x18\x05 \x01(\x05R\n" +
-	"remotePort\x12'\n" +
+	"remotePort\x12\x1b\n" +
+	"\tnew_proxy\x18\x06 \x01(\fR\bnewProxy\x12'\n" +
 	"\x04base\x18\xff\x01 \x01(\v2\x12.master.ServerBaseR\x04base\"I\n" +
 	"\x0fFRPAuthResponse\x12&\n" +
 	"\x06status\x18\x01 \x01(\v2\x0e.common.StatusR\x06status\x12\x0e\n" +

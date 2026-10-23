@@ -68,6 +68,9 @@ func (q *serverQuery) GetDefaultServer() (*models.ServerEntity, error) {
 }
 
 func (m *serverMutation) UpdateDefaultServer(c *models.Server) error {
+	if err := NormalizeServerWebsite(c.ServerEntity); err != nil {
+		return err
+	}
 	db := m.ctx.GetApp().GetDBManager().GetDefaultDB()
 	c.ServerID = defs.DefaultServerID
 	var previous models.Server
@@ -75,14 +78,7 @@ func (m *serverMutation) UpdateDefaultServer(c *models.Server) error {
 		return err
 	}
 	c.DeviceID, c.RuntimeID = previous.DeviceID, previous.RuntimeID
-	err := db.Where(&models.Server{
-		ServerEntity: &models.ServerEntity{
-			ServerID: defs.DefaultServerID,
-		}}).Save(c).Error
-	if err != nil {
-		return err
-	}
-	return nil
+	return saveServerWebsiteConfig(db, c)
 }
 
 func (q *serverQuery) ValidateServerSecret(serverID, secret string) (*models.ServerEntity, error) {
@@ -214,6 +210,9 @@ func (m *serverMutation) DeleteServer(userInfo models.UserInfo, serverID string)
 }
 
 func (m *serverMutation) UpdateServer(userInfo models.UserInfo, server *models.ServerEntity) error {
+	if err := NormalizeServerWebsite(server); err != nil {
+		return err
+	}
 	if userInfo.IsAdmin() && server.ServerID == defs.DefaultServerID {
 		return m.UpdateDefaultServer(&models.Server{ServerEntity: server})
 	}
@@ -232,7 +231,7 @@ func (m *serverMutation) UpdateServer(userInfo models.UserInfo, server *models.S
 	server.RuntimeID = old.RuntimeID
 	server.UserID = old.UserID
 	server.TenantID = old.TenantID
-	return db.Save(&models.Server{ServerEntity: server}).Error
+	return saveServerWebsiteConfig(db, &models.Server{ServerEntity: server})
 }
 
 func (q *serverQuery) ListServers(userInfo models.UserInfo, page, pageSize int) ([]*models.ServerEntity, error) {
