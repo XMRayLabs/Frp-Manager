@@ -8,7 +8,7 @@
 
 1. 在 DNS 管理中添加 `*.frp` 的 A 记录指向这台 **FRPS 网站入口服务器**的 IPv4。确实有可用 IPv6 时再添加对应 AAAA；不要给不可达的 IPv6 添加记录。面板域名本身的解析保留。
 2. 准备覆盖 `*.frp.xmray.de` 的 TLS 证书。`*.xmray.de` 不能覆盖这一层。使用 Let's Encrypt 时需 DNS-01 验证，建议使用 DNS 提供商的插件自动续期；仅做手动 DNS 验证的证书续期也需要人工参与。
-3. 在 Nginx 的 http 配置内加载 [nginx.website.conf.example](../deploy/nginx.website.conf.example)，保留原面板/RPC server 块。修改其中证书路径。80 跳转 HTTPS，443 把所有网站子域名转到本机 `9080`，保留 Host，并支持 WebSocket 与 AI/SSE 流式响应。
+3. 在 Nginx 的 http 配置内加载 [nginx.website.conf.example](https://github.com/XMRayLabs/Frp-Manager/blob/v1.1.7/deploy/nginx.website.conf.example)，保留原面板/RPC server 块。修改其中证书路径。80 跳转 HTTPS，443 把所有网站子域名转到本机 `9080`，保留 Host，并支持 WebSocket 与 AI/SSE 流式响应。
 4. 先将承载网站的服务端内核升级至 1.1.7 或更新版本（内置服务端随面板镜像更新，独立服务端使用“升级内核”）。然后在面板“服务端 → 修改配置 → 常用配置”中勾选“网站域名映射（可选）”，填写：
 
    | 字段 | 值 |
