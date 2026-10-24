@@ -48,3 +48,9 @@ jobs:
           pnpm audit
           pnpm test:parser
           pnpm test:electron
+      - name: Check all documentation dependencies
+        working-directory: docs
+        run: |
+          pnpm install --frozen-lockfile
+          pnpm audit
+          pnpm docs:build
