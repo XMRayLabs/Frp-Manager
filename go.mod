@@ -160,3 +160,6 @@ require (
 	sigs.k8s.io/json v0.0.0-20221116044647-bc3834ca7abd // indirect
 	sigs.k8s.io/yaml v1.3.0 // indirect
 )
+
+// FRP 0.71.1 StatsConn byte counters must be safe during concurrent HTTP closure.
+replace github.com/fatedier/frp => ./third_party/frp
