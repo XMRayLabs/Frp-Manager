@@ -43,7 +43,7 @@ export function PlatformSettingsForm() {
 
 	const platformInfo = useStore($platformInfo)
 
-	const form = useForm<PlatformFormValues>({
+	const form = useForm<z.input<typeof platformSchema>, unknown, PlatformFormValues>({
 		resolver: zodResolver(platformSchema),
 		defaultValues: {
 			useServerGithubProxyUrl: false,
@@ -62,7 +62,7 @@ export function PlatformSettingsForm() {
 			clientApiUrl: pref.clientApiUrl ?? '',
 			clientRpcUrl: pref.clientRpcUrl ?? '',
 		})
-		setInitial(form.getValues())
+		setInitial(platformSchema.parse(form.getValues()))
 		setLoading(false)
 	}, [form])
 

@@ -20,7 +20,7 @@ overrides:
   postcss: 8.5.28
   postcss>nanoid: 3.3.18
   sharp: 0.35.5
-  undici: 6.28.1
+  undici: 6.29.1
   yaml: 2.8.3
   source-map-js: 1.2.2
   follow-redirects: 1.16.1

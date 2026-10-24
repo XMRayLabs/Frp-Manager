@@ -41,7 +41,7 @@ const FRPSForm: React.FC<FRPSFormProps> = ({ serverID, server, frpsUrls }) => {
   const [websiteBaseURL, setWebsiteBaseURL] = useState(server.websiteBaseUrl || '')
   const [websiteDomain, setWebsiteDomain] = useState(() => { try { return JSON.parse(server.config || '{}').subDomainHost || '' } catch { return '' } })
   const [websitePort, setWebsitePort] = useState(() => { try { return String(JSON.parse(server.config || '{}').vhostHTTPPort || 9080) } catch { return '9080' } })
-  const form = useForm<z.infer<typeof ServerConfigZodSchema>>({
+  const form = useForm<z.input<typeof ServerConfigZodSchema>, unknown, z.output<typeof ServerConfigZodSchema>>({
     resolver: zodResolver(ServerConfigZodSchema),
   })
 

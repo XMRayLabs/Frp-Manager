@@ -35,17 +35,16 @@ jobs:
         with:
           node-version: '24'
       - run: npm install -g pnpm@10
-      - name: Check panel production dependencies and logic
+      - name: Check all panel dependencies and logic
         working-directory: www
         run: |
           pnpm install --frozen-lockfile
-          pnpm audit --prod
+          pnpm audit
           node --test tests/*.test.mjs
-      - name: Check desktop runtime and mobile production dependencies
+      - name: Check all desktop and mobile dependencies
         working-directory: client-ui
         run: |
           pnpm install --frozen-lockfile
-          pnpm audit --prod
-          pnpm audit --audit-level high
+          pnpm audit
           pnpm test:parser
           pnpm test:electron

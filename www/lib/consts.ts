@@ -1,5 +1,4 @@
 import { websiteAccountsValid } from './website-auth'
-import * as z from 'zod'
 import { Client, Server } from './pb/common'
 import { GetPlatformInfoResponse } from './pb/api_user'
 import { TypedProxyConfig } from '@/types/proxy'
@@ -42,28 +41,7 @@ export const LATEST_DOWNLOADS = {
   macosCoreX64: `${REPOSITORY_URL}/releases/latest/download/frp-manager-darwin-amd64`,
   macosCoreArm64: `${REPOSITORY_URL}/releases/latest/download/frp-manager-darwin-arm64`,
 } as const
-export const ZodPortSchema = z.coerce
-  .number({ required_error: 'validation.required' })
-  .min(1, { message: 'validation.portRange.min' })
-  .max(65535, { message: 'validation.portRange.max' })
-
-export const ZodPortOptionalSchema = z.coerce
-  .number({ required_error: 'validation.required' })
-  .min(1, { message: 'validation.portRange.min' })
-  .max(65535, { message: 'validation.portRange.max' })
-
-export const ZodIPSchema = z
-  .string({ required_error: 'validation.required' })
-  .regex(/^\d{1,3}\.\d{1,3}\.\d{1,3}\.\d{1,3}$/, { message: 'validation.ipAddress' })
-export const ZodStringSchema = z
-  .string({ required_error: 'validation.required' })
-  .min(1, { message: 'validation.required' })
-
-export const ZodStringOptionalSchema = z.string().optional()
-export const ZodEmailSchema = z
-  .string({ required_error: 'validation.required' })
-  .min(1, { message: 'validation.required' })
-  .email({ message: 'auth.email.invalid' })
+export { ZodPortSchema, ZodPortOptionalSchema, ZodIPSchema, ZodStringSchema, ZodStringOptionalSchema, ZodEmailSchema } from './form-schemas'
 
 export const ConnectionProtocols = ['tcp', 'kcp', 'quic', 'websocket', 'wss']
 
