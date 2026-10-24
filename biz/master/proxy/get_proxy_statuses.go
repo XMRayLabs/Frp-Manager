@@ -2,6 +2,7 @@ package proxy
 
 import (
 	"context"
+	"encoding/json"
 	"fmt"
 	"strings"
 	"sync"
@@ -69,14 +70,14 @@ func GetProxyStatuses(ctx *app.Context, req *pb.GetProxyStatusesRequest) (*pb.Ge
 		return nil, err
 	}
 
-	results := collectProxyStatuses(ctx, userInfo.GetUserName(), configs)
+	results := collectProxyStatuses(ctx, configs)
 	return &pb.GetProxyStatusesResponse{
 		Status:        &pb.Status{Code: pb.RespCode_RESP_CODE_SUCCESS, Message: "success"},
 		ProxyStatuses: results,
 	}, nil
 }
 
-func collectProxyStatuses(ctx *app.Context, userName string, configs []*models.ProxyConfig) []*pb.ProxyStatusResult {
+func collectProxyStatuses(ctx *app.Context, configs []*models.ProxyConfig) []*pb.ProxyStatusResult {
 	results := make([]*pb.ProxyStatusResult, 0, len(configs))
 	groups := make(map[string][]*models.ProxyConfig)
 	now := time.Now()
@@ -121,7 +122,7 @@ func collectProxyStatuses(ctx *app.Context, userName string, configs []*models.P
 			workers <- struct{}{}
 			defer func() { <-workers }()
 
-			groupResults := refreshProxyStatusGroup(ctx, userName, originClientID, group)
+			groupResults := refreshProxyStatusGroup(ctx, originClientID, group)
 			mu.Lock()
 			results = append(results, groupResults...)
 			mu.Unlock()
@@ -133,7 +134,6 @@ func collectProxyStatuses(ctx *app.Context, userName string, configs []*models.P
 
 func refreshProxyStatusGroup(
 	ctx *app.Context,
-	userName string,
 	originClientID string,
 	configs []*models.ProxyConfig,
 ) []*pb.ProxyStatusResult {
@@ -143,7 +143,7 @@ func refreshProxyStatusGroup(
 			ProxyId:  lo.ToPtr(uint32(config.ID)),
 			ClientId: lo.ToPtr(config.ClientID),
 			ServerId: lo.ToPtr(config.ServerID),
-			Name:     lo.ToPtr(proxyRuntimeName(userName, config.Name)),
+			Name:     lo.ToPtr(config.Name),
 		})
 	}
 
@@ -164,7 +164,7 @@ func refreshProxyStatusGroup(
 				"client [%s] uses the legacy proxy status protocol; using one-request compatibility mode",
 				originClientID,
 			)
-			return refreshLegacyProxyStatusGroup(ctx, userName, originClientID, configs)
+			return refreshLegacyProxyStatusGroup(ctx, originClientID, configs)
 		}
 		ctx.Logger().WithError(err).Warnf(
 			"batch proxy status query failed for client [%s], proxies: %d",
@@ -188,6 +188,37 @@ func refreshProxyStatusGroup(
 		}
 	}
 
+	// Some much older kernels use user-prefixed status names. Retry only a
+	// confirmed lookup miss; never replace a real runtime error or timeout.
+	var missing []*models.ProxyConfig
+	for _, config := range configs {
+		if proxyStatusNameMissing(received[uint32(config.ID)]) {
+			missing = append(missing, config)
+		}
+	}
+	if len(missing) > 0 {
+		prefixes := legacyProxyStatusPrefixes(ctx, missing)
+		var compatibilityTargets []*pb.ProxyStatusTarget
+		for _, config := range missing {
+			if prefix := prefixes[config.ClientID]; prefix != "" {
+				compatibilityTargets = append(compatibilityTargets, &pb.ProxyStatusTarget{
+					ProxyId: lo.ToPtr(uint32(config.ID)), ClientId: lo.ToPtr(config.ClientID),
+					ServerId: lo.ToPtr(config.ServerID), Name: lo.ToPtr(prefix + config.Name),
+				})
+			}
+		}
+		if len(compatibilityTargets) > 0 {
+			compatibilityResponse := &pb.GetProxyStatusesRPCResponse{}
+			if err := rpc.CallClientWrapper(rpcAppContext, originClientID, pb.Event_EVENT_GET_PROXY_INFO_BATCH,
+				&pb.GetProxyStatusesRPCRequest{Targets: compatibilityTargets}, compatibilityResponse); err == nil {
+				for _, result := range compatibilityResponse.GetProxyStatuses() {
+					if result != nil && proxyStatusNameMissing(received[result.GetProxyId()]) && result.GetWorkingStatus() != nil {
+						received[result.GetProxyId()] = result.GetWorkingStatus()
+					}
+				}
+			}
+		}
+	}
 	results := make([]*pb.ProxyStatusResult, 0, len(configs))
 	for _, config := range configs {
 		proxyID := uint32(config.ID)
@@ -203,12 +234,13 @@ func refreshProxyStatusGroup(
 
 func refreshLegacyProxyStatusGroup(
 	ctx *app.Context,
-	userName string,
 	originClientID string,
 	configs []*models.ProxyConfig,
 ) []*pb.ProxyStatusResult {
 	results := make([]*pb.ProxyStatusResult, len(configs))
 	workers := make(chan struct{}, proxyStatusRPCWorkers)
+	var prefixOnce sync.Once
+	var prefixes map[string]string
 	var wg sync.WaitGroup
 	legacyContext, cancel := context.WithTimeout(ctx.Context, proxyStatusLegacyLimit)
 	defer cancel()
@@ -229,11 +261,22 @@ func refreshLegacyProxyStatusGroup(
 				&pb.GetProxyConfigRequest{
 					ClientId: lo.ToPtr(config.ClientID),
 					ServerId: lo.ToPtr(config.ServerID),
-					Name:     lo.ToPtr(proxyRuntimeName(userName, config.Name)),
+					Name:     lo.ToPtr(config.Name),
 				},
 				response,
 			)
 
+			// Legacy protocols can fail the whole RPC for an individual miss.
+			if (err != nil && strings.TrimSpace(err.Error()) == "client return error: cannot get proxy status") ||
+				(err == nil && proxyStatusNameMissing(response.GetWorkingStatus())) {
+				prefixOnce.Do(func() { prefixes = legacyProxyStatusPrefixes(ctx, configs) })
+				if prefix := prefixes[config.ClientID]; prefix != "" {
+					err = rpc.CallClientWrapper(app.NewContext(legacyContext, ctx.GetApp()), originClientID,
+						pb.Event_EVENT_GET_PROXY_INFO, &pb.GetProxyConfigRequest{
+							ClientId: lo.ToPtr(config.ClientID), ServerId: lo.ToPtr(config.ServerID), Name: lo.ToPtr(prefix + config.Name),
+						}, response)
+				}
+			}
 			status := response.GetWorkingStatus()
 			if err != nil {
 				status = proxyStatus("error", err.Error())
@@ -288,7 +331,7 @@ func proxyStatusResult(proxyID uint32, status *pb.ProxyWorkingStatus) *pb.ProxyS
 var overviewProbeSlots = make(chan struct{}, 8)
 var overviewProbes sync.Map
 
-func OverviewProxyStatuses(ctx *app.Context, prefixes map[string]string, configs []*models.ProxyConfig) []*pb.ProxyStatusResult {
+func OverviewProxyStatuses(ctx *app.Context, configs []*models.ProxyConfig) []*pb.ProxyStatusResult {
 	results := make([]*pb.ProxyStatusResult, 0, len(configs))
 	groups := map[string][]*models.ProxyConfig{}
 	for _, cfg := range configs {
@@ -304,9 +347,7 @@ func OverviewProxyStatuses(ctx *app.Context, prefixes map[string]string, configs
 		if id == "" {
 			id = cfg.ClientID
 		}
-		// Include the actual configured FRP user, rather than the dashboard viewer.
-		key := id + "\x00" + prefixes[cfg.ClientID]
-		groups[key] = append(groups[key], cfg)
+		groups[id] = append(groups[id], cfg)
 	}
 	for key, group := range groups {
 		if _, busy := overviewProbes.LoadOrStore(key, true); busy {
@@ -320,18 +361,39 @@ func OverviewProxyStatuses(ctx *app.Context, prefixes map[string]string, configs
 		}
 		go func(key string, group []*models.ProxyConfig) {
 			defer func() { <-overviewProbeSlots; overviewProbes.Delete(key) }()
-			parts := strings.SplitN(key, "\x00", 2)
 			probeCtx, cancel := context.WithTimeout(context.Background(), 6*time.Second)
 			defer cancel()
-			refreshProxyStatusGroup(app.NewContext(probeCtx, ctx.GetApp()), parts[1], parts[0], group)
+			refreshProxyStatusGroup(app.NewContext(probeCtx, ctx.GetApp()), key, group)
 		}(key, group)
 	}
 	return results
 }
 
-func proxyRuntimeName(userName, name string) string {
-	if userName == "" {
-		return name
+func proxyStatusNameMissing(status *pb.ProxyWorkingStatus) bool {
+	return status != nil && status.GetStatus() == "error" && strings.TrimSpace(status.GetErr()) == "cannot get proxy status"
+}
+
+// Compatibility prefixes come from each tunnel's configured FRP user, never
+// from the administrator or group member viewing the dashboard.
+func legacyProxyStatusPrefixes(ctx *app.Context, configs []*models.ProxyConfig) map[string]string {
+	prefixes := make(map[string]string, len(configs))
+	ids := make([]string, 0, len(configs))
+	for _, config := range configs {
+		ids = append(ids, config.ClientID)
 	}
-	return userName + "." + name
+	var clients []models.ClientEntity
+	if err := ctx.GetApp().GetDBManager().GetDefaultDB().Table("clients").
+		Select("client_id, config_content").Where("client_id IN ? AND deleted_at IS NULL", ids).Find(&clients).Error; err != nil {
+		ctx.Logger().WithError(err).Warn("cannot read configured proxy status prefixes")
+		return prefixes
+	}
+	for _, client := range clients {
+		var common struct {
+			User string `json:"user"`
+		}
+		if json.Unmarshal(client.ConfigContent, &common) == nil && common.User != "" {
+			prefixes[client.ClientID] = common.User + "."
+		}
+	}
+	return prefixes
 }

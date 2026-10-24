@@ -53,9 +53,9 @@ func testWebsiteOverActualFRP(t *testing.T, httpWebsite bool) {
 	}
 	defer svr.Close()
 	go svr.Run(context.Background())
-	raw := []byte(fmt.Sprintf(`{"serverAddr":"127.0.0.1","serverPort":%d,"proxies":[{"name":"website","type":"tcp","remotePort":%d,"plugin":{"type":"fm_http_auth","localAddr":%q,"accounts":[{"username":"alice","password":"alice-secret"},{"username":"bob","password":"bob-secret"}]}}]}`, controlPort, publicPort, strings.TrimPrefix(upstream.URL, "http://")))
+	raw := []byte(fmt.Sprintf(`{"user":"admin","serverAddr":"127.0.0.1","serverPort":%d,"proxies":[{"name":"admin.website","type":"tcp","remotePort":%d,"plugin":{"type":"fm_http_auth","localAddr":%q,"accounts":[{"username":"alice","password":"alice-secret"},{"username":"bob","password":"bob-secret"}]}}]}`, controlPort, publicPort, strings.TrimPrefix(upstream.URL, "http://")))
 	if httpWebsite {
-		raw = []byte(fmt.Sprintf(`{"serverAddr":"127.0.0.1","serverPort":%d,"proxies":[{"name":"website","type":"http","subdomain":"qwen-admin","plugin":{"type":"fm_http_auth","localAddr":%q,"accounts":[{"username":"alice","password":"alice-secret"},{"username":"bob","password":"bob-secret"}]}}]}`, controlPort, strings.TrimPrefix(upstream.URL, "http://")))
+		raw = []byte(fmt.Sprintf(`{"user":"admin","serverAddr":"127.0.0.1","serverPort":%d,"proxies":[{"name":"admin.website","type":"http","subdomain":"qwen-admin","plugin":{"type":"fm_http_auth","localAddr":%q,"accounts":[{"username":"alice","password":"alice-secret"},{"username":"bob","password":"bob-secret"}]}}]}`, controlPort, strings.TrimPrefix(upstream.URL, "http://")))
 	}
 	common, proxies, visitors, e := utils.LoadClientConfig(raw, true)
 	if e != nil {
@@ -112,6 +112,15 @@ func testWebsiteOverActualFRP(t *testing.T, httpWebsite bool) {
 	wait("", "", 401)
 	wait("alice", "alice-secret", 200)
 	wait("bob", "bob-secret", 200)
+	// FRP 0.71.1 keeps raw names in its status exporter even though the server
+	// wire name is prefixed with the configured user.
+	status, ok := cli.StatusExporter().GetProxyStatus("admin.website")
+	if !ok || status.Phase != "running" {
+		t.Fatalf("raw proxy status missing: %+v", status)
+	}
+	if _, ok := cli.StatusExporter().GetProxyStatus("admin.admin.website"); ok {
+		t.Fatal("wire name unexpectedly accepted for client status")
+	}
 	options := proxies[0].GetBaseConfig().Plugin.ClientPluginOptions.(*websiteauth.Options)
 	replacement := proxies[0].Clone()
 	copy := options.Clone().(*websiteauth.Options)

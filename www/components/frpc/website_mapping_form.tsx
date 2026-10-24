@@ -32,15 +32,25 @@ export function WebsiteMappingForm({ defaultClientID, defaultServerID, onSuccess
   const [accounts, setAccounts] = useState<WebsiteAccount[]>([])
   const [suffix] = useState(() => nanoid(6))
   const [created, setCreated] = useState('')
-  const server = useQuery({ queryKey: ['getServer', serverID], enabled: !!serverID, queryFn: async () => { const r = await getServer({ serverId: serverID }); if (r.status?.code !== RespCode.SUCCESS) throw new Error(r.status?.message || '读取服务端失败'); return r.server }, retry: false })
-  const entry = websiteEntry(server.data?.websiteBaseUrl, server.data?.config)
+  const server = useQuery({
+    queryKey: ['getServer', serverID],
+    enabled: !!serverID,
+    queryFn: async () => {
+      const response = await getServer({ serverId: serverID })
+      if (response.status?.code !== RespCode.SUCCESS) throw new Error(response.status?.message || '读取服务端失败')
+      // Other consumers of this query key also cache the complete API response.
+      return response
+    },
+    retry: false,
+  })
+  const entry = websiteEntry(server.data?.server?.websiteBaseUrl, server.data?.server?.config)
   const subdomain = websiteSubdomain(name, user?.userName || '')
   const validName = validWebsiteLabel(name.trim().toLowerCase()) && validWebsiteLabel(subdomain)
   const address = entry && validName ? websiteURL(entry.baseURL, subdomain) : ''
   const valid = !!clientID && !!serverID && !!entry && validName && /^\d+$/.test(port) && Number(port) > 0 && Number(port) <= 65535 && !!localIP.trim() && (!auth || websiteAccountsValid(accounts))
   const mutation = useMutation({ mutationFn: async () => {
     if (!valid || !entry || !user?.userName) throw new Error('请完整填写网站映射配置')
-    const config = buildWebsiteProxy({ name, owner: user.userName, localIP, port, suffix, baseURL: entry.baseURL, serverConfig: server.data?.config || '{}', accounts: auth ? accounts : undefined })
+    const config = buildWebsiteProxy({ name, owner: user.userName, localIP, port, suffix, baseURL: entry.baseURL, serverConfig: server.data?.server?.config || '{}', accounts: auth ? accounts : undefined })
     config.name = automaticProxyName(user.userName, clientID!, serverID!, config, subdomain)
     await createProxyConfig({ clientId: clientID!, serverId: serverID!, config: ObjToUint8Array({ proxies: [config] }), overwrite: false })
     return address

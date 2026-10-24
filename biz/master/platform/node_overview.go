@@ -177,15 +177,6 @@ func getNodeOverview(ctx *app.Context) (*overviewResponse, error) {
 	if err != nil {
 		return nil, err
 	}
-	prefixes := map[string]string{}
-	for _, row := range all {
-		if len(row.ConfigContent) == 0 {
-			continue
-		}
-		if cfg, err := row.GetConfigContent(); err == nil {
-			prefixes[row.ClientID] = cfg.User
-		}
-	}
 	configured := map[string]bool{}
 	invalid := map[string]bool{}
 	failed := map[string]bool{}
@@ -231,7 +222,7 @@ func getNodeOverview(ctx *app.Context) (*overviewResponse, error) {
 			active = append(active, row)
 		}
 		// Existing batched RPC and status cache avoid a separate request per proxy.
-		for _, state := range proxyapi.OverviewProxyStatuses(ctx, prefixes, active) {
+		for _, state := range proxyapi.OverviewProxyStatuses(ctx, active) {
 			status := state.GetWorkingStatus()
 			if status.GetErr() != "" || (status.GetStatus() != "running" && status.GetStatus() != "stopped") {
 				failed[owners[state.GetProxyId()]] = true

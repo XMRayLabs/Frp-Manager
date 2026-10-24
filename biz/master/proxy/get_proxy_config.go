@@ -37,7 +37,7 @@ func GetProxyConfig(c *app.Context, req *pb.GetProxyConfigRequest) (*pb.GetProxy
 			workingStatus = cachedStatus
 		} else {
 			workingStatus = proxyStatus("unknown", "")
-			go collectProxyStatuses(c.Background(), userInfo.GetUserName(), []*models.ProxyConfig{proxyConfig})
+			go collectProxyStatuses(c.Background(), []*models.ProxyConfig{proxyConfig})
 		}
 	}
 

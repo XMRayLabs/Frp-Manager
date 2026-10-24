@@ -3,7 +3,6 @@ package dao
 import (
 	"context"
 	"fmt"
-	"strings"
 	"time"
 
 	"github.com/Sakurame1/frp-manager/defs"
@@ -11,8 +10,8 @@ import (
 	"github.com/Sakurame1/frp-manager/pb"
 	"github.com/Sakurame1/frp-manager/utils"
 	"github.com/Sakurame1/frp-manager/utils/logger"
+	"github.com/fatedier/frp/pkg/naming"
 	"github.com/samber/lo"
-	"github.com/sourcegraph/conc/pool"
 	"gorm.io/gorm"
 	"gorm.io/gorm/clause"
 )
@@ -65,28 +64,7 @@ func (q *proxyQuery) GetProxyStatsByClientID(userInfo models.UserInfo, clientID 
 	}
 	db := q.ctx.GetApp().GetDBManager().GetDefaultDB()
 	list := []*models.ProxyStats{}
-	err := db.
-		Where(&models.ProxyStats{ProxyStatsEntity: &models.ProxyStatsEntity{
-			UserID:   userInfo.GetUserID(),
-			TenantID: userInfo.GetTenantID(),
-			ClientID: clientID,
-		}}).
-		Or(&models.ProxyStats{ProxyStatsEntity: &models.ProxyStatsEntity{
-			UserID:   0,
-			TenantID: userInfo.GetTenantID(),
-			ClientID: clientID,
-		}}).
-		Or(&models.ProxyStats{ProxyStatsEntity: &models.ProxyStatsEntity{
-			UserID:         userInfo.GetUserID(),
-			TenantID:       userInfo.GetTenantID(),
-			OriginClientID: clientID,
-		}}).
-		Or(&models.ProxyStats{ProxyStatsEntity: &models.ProxyStatsEntity{
-			UserID:         0,
-			TenantID:       userInfo.GetTenantID(),
-			OriginClientID: clientID,
-		}}).
-		Find(&list).Error
+	err := db.Where("tenant_id = ? AND (client_id = ? OR origin_client_id = ?)", userInfo.GetTenantID(), clientID, clientID).Find(&list).Error
 	if err != nil {
 		return nil, err
 	}
@@ -110,125 +88,83 @@ func (q *proxyQuery) GetProxyStatsByServerID(userInfo models.UserInfo, serverID 
 }
 
 func (m *proxyMutation) AdminUpdateProxyStats(srv *models.ServerEntity, inputs []*pb.ProxyInfo) error {
-	if srv.ServerID == "" {
+	if srv == nil || srv.ServerID == "" {
 		return fmt.Errorf("invalid server id")
 	}
-
 	db := m.ctx.GetApp().GetDBManager().GetDefaultDB()
 	return db.Transaction(func(tx *gorm.DB) error {
-
-		queryResults := make([]interface{}, 3)
-		p := pool.New().WithErrors()
-		p.Go(
-			func() error {
-				user := models.User{}
-				if err := tx.Where(&models.User{
-					UserEntity: &models.UserEntity{
-						UserID: srv.UserID,
-					},
-				}).First(&user).Error; err != nil {
-					return err
-				}
-				queryResults[0] = user
-				return nil
-			},
-		)
-		p.Go(
-			func() error {
-				clients := []*models.Client{}
-				if err := tx.
-					Where(&models.Client{ClientEntity: &models.ClientEntity{
-						UserID:   srv.UserID,
-						ServerID: srv.ServerID,
-					}}).Find(&clients).Error; err != nil {
-					return err
-				}
-				queryResults[1] = clients
-				return nil
-			},
-		)
-		p.Go(
-			func() error {
-				oldProxy := []*models.ProxyStats{}
-				if err := tx.
-					Where(&models.ProxyStats{ProxyStatsEntity: &models.ProxyStatsEntity{
-						UserID:   srv.UserID,
-						ServerID: srv.ServerID,
-					}}).Find(&oldProxy).Error; err != nil {
-					return err
-				}
-				oldProxyMap := lo.SliceToMap(oldProxy, func(p *models.ProxyStats) (string, *models.ProxyStats) {
-					return p.Name, p
-				})
-				queryResults[2] = oldProxyMap
-				return nil
-			},
-		)
-		if err := p.Wait(); err != nil {
+		// Shared servers host clients belonging to many users. Match complete
+		// wire names from each client's config instead of stripping the server
+		// owner's username or splitting names that legitimately contain dots.
+		var clients []*models.Client
+		query := tx.Where("server_id = ?", srv.ServerID)
+		if srv.ServerID != defs.DefaultServerID {
+			query = query.Where("tenant_id = ?", srv.TenantID)
+		}
+		if err := query.Find(&clients).Error; err != nil {
 			return err
 		}
-
-		user := queryResults[0].(models.User)
-		clients := queryResults[1].([]*models.Client)
-		oldProxyMap := queryResults[2].(map[string]*models.ProxyStats)
-
-		inputMap := map[string]*pb.ProxyInfo{}
-		proxyMap := map[string]*models.ProxyStatsEntity{}
-		for _, proxyInfo := range inputs {
-			if proxyInfo == nil {
-				continue
-			}
-			proxyName := strings.TrimPrefix(proxyInfo.GetName(), user.UserName+".")
-			proxyMap[proxyName] = &models.ProxyStatsEntity{
-				ServerID:        srv.ServerID,
-				Name:            proxyName,
-				Type:            proxyInfo.GetType(),
-				UserID:          srv.UserID,
-				TenantID:        srv.TenantID,
-				TodayTrafficIn:  proxyInfo.GetTodayTrafficIn(),
-				TodayTrafficOut: proxyInfo.GetTodayTrafficOut(),
-			}
-			inputMap[proxyName] = proxyInfo
+		type target struct {
+			client          *models.Client
+			name, proxyType string
 		}
-
-		proxyEntityMap := map[string]*models.ProxyStatsEntity{}
+		targets := map[string][]target{}
 		for _, client := range clients {
-			cliCfg, err := client.GetConfigContent()
-			if err != nil || cliCfg == nil {
+			cfg, err := client.GetConfigContent()
+			if err != nil || cfg == nil {
 				continue
 			}
-			for _, cfg := range cliCfg.Proxies {
-				if proxy, ok := proxyMap[cfg.GetBaseConfig().Name]; ok {
-					proxy.UserID = client.UserID
-					proxy.ClientID = client.ClientID
-					proxy.OriginClientID = client.OriginClientID
-					proxyEntityMap[proxy.Name] = proxy
-				}
+			for _, proxy := range cfg.Proxies {
+				base := proxy.GetBaseConfig()
+				wireName := naming.AddUserPrefix(cfg.User, base.Name)
+				targets[wireName] = append(targets[wireName], target{client, base.Name, base.Type})
 			}
 		}
-
-		nowTime := time.Now()
-		results := lo.Values(lo.MapValues(proxyEntityMap, func(p *models.ProxyStatsEntity, name string) *models.ProxyStats {
-			item := &models.ProxyStats{
-				ProxyStatsEntity: p,
+		type identity struct {
+			tenant, owner  int
+			clientID, name string
+		}
+		var oldRows []*models.ProxyStats
+		query = tx.Where("server_id = ?", srv.ServerID)
+		if srv.ServerID != defs.DefaultServerID {
+			query = query.Where("tenant_id = ?", srv.TenantID)
+		}
+		if err := query.Find(&oldRows).Error; err != nil {
+			return err
+		}
+		oldByIdentity := map[identity]*models.ProxyStats{}
+		for _, old := range oldRows {
+			oldByIdentity[identity{old.TenantID, old.UserID, old.ClientID, old.Name}] = old
+		}
+		results := map[identity]*models.ProxyStats{}
+		now := time.Now()
+		for _, input := range inputs {
+			if input == nil {
+				continue
 			}
-			if oldProxy, ok := oldProxyMap[name]; ok {
-				item.ProxyID = oldProxy.ProxyID
-				firstSync := inputMap[name].GetFirstSync()
-				isSameDay := utils.IsSameDay(nowTime, oldProxy.UpdatedAt)
-
-				item.HistoryTrafficIn = oldProxy.HistoryTrafficIn
-				item.HistoryTrafficOut = oldProxy.HistoryTrafficOut
-				if !isSameDay || firstSync {
-					item.HistoryTrafficIn += oldProxy.TodayTrafficIn
-					item.HistoryTrafficOut += oldProxy.TodayTrafficOut
+			matches := targets[input.GetName()]
+			if len(matches) != 1 || matches[0].proxyType != input.GetType() {
+				continue
+			}
+			match := matches[0]
+			key := identity{match.client.TenantID, match.client.UserID, match.client.ClientID, match.name}
+			row := &models.ProxyStats{ProxyStatsEntity: &models.ProxyStatsEntity{
+				ServerID: srv.ServerID, ClientID: match.client.ClientID, OriginClientID: match.client.OriginClientID,
+				Name: match.name, Type: match.proxyType, UserID: match.client.UserID, TenantID: match.client.TenantID,
+				TodayTrafficIn: input.GetTodayTrafficIn(), TodayTrafficOut: input.GetTodayTrafficOut(),
+			}}
+			if old := oldByIdentity[key]; old != nil {
+				row.ProxyID, row.CreatedAt = old.ProxyID, old.CreatedAt
+				row.HistoryTrafficIn, row.HistoryTrafficOut = old.HistoryTrafficIn, old.HistoryTrafficOut
+				if !utils.IsSameDay(now, old.UpdatedAt) || input.GetFirstSync() {
+					row.HistoryTrafficIn += old.TodayTrafficIn
+					row.HistoryTrafficOut += old.TodayTrafficOut
 				}
 			}
-			return item
-		}))
-
+			results[key] = row
+		}
 		if len(results) > 0 {
-			return tx.Save(results).Error
+			return tx.Save(lo.Values(results)).Error
 		}
 		return nil
 	})

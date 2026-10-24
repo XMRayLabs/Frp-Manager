@@ -37,7 +37,11 @@ func PullConfig(appInstance app.Application, clientID, clientSecret string) erro
 
 	if len(resp.GetClient().GetOriginClientId()) == 0 {
 		currentClientIDs := ctrl.List()
-		if idsToRemove, _ := lo.Difference(resp.GetClient().GetClientIds(), currentClientIDs); len(idsToRemove) > 0 {
+		desiredClientIDs := resp.GetClient().GetClientIds()
+		if len(resp.GetClient().GetConfig()) > 0 {
+			desiredClientIDs = append(append([]string{}, desiredClientIDs...), clientID)
+		}
+		if idsToRemove, _ := lo.Difference(currentClientIDs, desiredClientIDs); len(idsToRemove) > 0 {
 			logger.Logger(ctx).Infof("client [%s] has %d expired child clients, remove clientIDs: [%+v]", clientID, len(idsToRemove), idsToRemove)
 			for _, id := range idsToRemove {
 				ctrl.StopByClient(id)
@@ -49,7 +53,7 @@ func PullConfig(appInstance app.Application, clientID, clientSecret string) erro
 	// this client is shadow client, has no config
 	// pull child client config
 	if len(resp.GetClient().GetClientIds()) > 0 {
-		for _, id := range resp.GetClient().GetClientIds() {
+		for _, id := range lo.Uniq(resp.GetClient().GetClientIds()) {
 			if id == clientID {
 				logger.Logger(ctx).Infof("client [%s] is shadow client, skip", clientID)
 				continue
