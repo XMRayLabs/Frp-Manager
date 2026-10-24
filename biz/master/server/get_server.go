@@ -30,7 +30,7 @@ func GetServerHandler(c *app.Context, req *pb.GetServerRequest) (*pb.GetServerRe
 		}, nil
 	}
 
-	if !strings.Contains(userServerID, ".") {
+	if userServerID != defs.DefaultServerID && !strings.Contains(userServerID, ".") {
 		userServerID = app.GlobalClientID(userInfo.GetUserName(), "s", userServerID)
 	}
 	var serverEntity *models.ServerEntity
